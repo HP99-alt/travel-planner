@@ -8,8 +8,8 @@ const DEFAULTS = {
   insurance: '',
   contactName: '',
   contactPhone: '',
-  localEmergency: '999',
-  embassy: '',
+  localEmergency: '999 (Malaysia)',
+  embassy: 'China Embassy KL: +60 3 2161 5329',
 }
 
 export default function EmergencyPanel({ trip, onUpdate }) {
