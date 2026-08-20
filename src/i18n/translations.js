@@ -1,0 +1,292 @@
+// Bilingual translation dictionaries for English and Chinese.
+// Keys are shared; values are localized strings. UI labels only — user data
+// (trip names, notes) is entered free-form and not translated.
+
+export const translations = {
+  en: {
+    'app.title': 'Travel Schedule Planner',
+    'app.subtitle': 'Plan your trips by day and time',
+
+    // Language toggle
+    'lang.label': 'Language',
+    'lang.en': 'English',
+    'lang.zh': '中文',
+
+    // Sidebar / trip list
+    'trips.title': 'My Trips',
+    'trips.new': 'New Trip',
+    'trips.empty': 'No trips yet. Create your first trip to get started.',
+    'trips.delete': 'Delete',
+    'trips.confirmDelete': 'Delete this trip? This cannot be undone.',
+
+    // Trip form
+    'form.name': 'Trip Name',
+    'form.namePlaceholder': 'e.g. Summer Trip to Tokyo',
+    'form.destination': 'Destination',
+    'form.destinationPlaceholder': 'e.g. Tokyo, Japan',
+    'form.startDate': 'Start Date',
+    'form.endDate': 'End Date',
+    'form.days': 'Number of Days',
+    'form.create': 'Create Trip',
+    'form.cancel': 'Cancel',
+    'form.save': 'Save',
+    'form.editTrip': 'Edit Trip',
+    'form.creating': 'Creating',
+
+    // Itinerary / days
+    'itinerary.title': 'Itinerary',
+    'itinerary.day': 'Day',
+    'itinerary.date': 'Date',
+    'itinerary.emptyDay': 'No activities planned for this day yet.',
+    'itinerary.addActivity': 'Add Activity',
+    'itinerary.backToList': 'Back to Trips',
+    'itinerary.tripInfo': 'Trip Info',
+
+    // Activity
+    'activity.time': 'Time',
+    'activity.title': 'Activity',
+    'activity.titlePlaceholder': 'e.g. Visit Senso-ji Temple',
+    'activity.note': 'Note',
+    'activity.notePlaceholder': 'Optional details...',
+    'activity.add': 'Add',
+    'activity.save': 'Save',
+    'activity.delete': 'Remove',
+    'activity.empty': 'Add your first activity for this day.',
+
+    // Activity categories
+    'cat.food': 'Food',
+    'cat.sight': 'Sight',
+    'cat.transport': 'Transport',
+    'cat.stay': 'Stay',
+    'cat.other': 'Other',
+    'activity.category': 'Type',
+    'activity.address': 'Address',
+    'activity.addressPlaceholder': 'e.g. 1-1 Asakusa, Taito City, Tokyo',
+    'activity.geocode': 'Locate on map',
+    'activity.geocoding': 'Locating…',
+    'activity.geoFail': 'Address not found',
+    'activity.geoHint': 'Enter an address and click "Locate" to drop a pin.',
+
+    // Tickets / bookings on activities
+    'activity.ticketNo': 'Ticket / Booking No.',
+    'activity.ticketNoPlaceholder': 'e.g. ABC12345',
+    'activity.price': 'Price',
+    'activity.currency': 'Currency',
+    'activity.qrNote': 'QR / Attachment note',
+    'activity.qrNotePlaceholder': 'e.g. screenshot saved in Photos, barcode at gate',
+
+    // Flights
+    'flight.title': 'Flights',
+    'flight.add': 'Add Flight',
+    'flight.empty': 'No flights added yet.',
+    'flight.no': 'Flight No.',
+    'flight.noPlaceholder': 'e.g. AK512',
+    'flight.departTime': 'Depart',
+    'flight.arriveTime': 'Arrive',
+    'flight.from': 'From',
+    'flight.fromPlaceholder': 'e.g. KUL',
+    'flight.to': 'To',
+    'flight.toPlaceholder': 'e.g. HND',
+    'flight.pnr': 'PNR / Booking Ref',
+    'flight.pnrPlaceholder': 'e.g. X7K2QP',
+
+    // Lodging / stay
+    'stay.title': 'Lodging',
+    'stay.add': 'Add Lodging',
+    'stay.empty': 'No lodging added yet.',
+    'stay.name': 'Hotel / Place',
+    'stay.namePlaceholder': 'e.g. Shinjuku Granbell Hotel',
+    'stay.checkIn': 'Check-in',
+    'stay.checkOut': 'Check-out',
+    'stay.ref': 'Confirmation No.',
+    'stay.refPlaceholder': 'e.g. BK-998877',
+    'stay.note': 'Note',
+    'stay.edit': 'Edit',
+
+    // Copy + sample
+    'copy': 'Copy',
+    'copied': 'Copied',
+    'fillSample': 'Fill sample',
+    'fillSampleFlight': 'Sample flight',
+    'fillSampleHotel': 'Sample hotel',
+    'fillSampleTicket': 'Sample ticket',
+
+    // Budget
+    'budget.title': 'Budget',
+    'budget.total': 'Total',
+    'budget.perDay': 'Per day (avg)',
+    'budget.byCurrency': 'By currency',
+    'budget.noCost': 'No costs recorded yet.',
+    'budget.activityCost': 'Est. cost',
+    'budget.lodgingCost': 'Lodging cost',
+
+    // Packing checklist
+    'pack.title': 'Packing List',
+    'pack.add': 'Add item',
+    'pack.placeholder': 'e.g. Passport',
+    'pack.empty': 'List is empty. Add things to pack.',
+    'pack.addDefault': 'Add common items',
+    'pack.clear': 'Clear checked',
+
+    // Map
+    'map.title': 'Map',
+    'map.allPins': 'All activity locations',
+    'map.noPins': 'No pinned locations yet. Add addresses to activities.',
+
+    // Export / share
+    'export.title': 'Export & Share',
+    'export.pdf': 'Export PDF',
+    'export.text': 'Copy as Text',
+    'export.link': 'Share Link',
+    'export.linkCopied': 'Link copied!',
+    'export.textCopied': 'Text copied!',
+    'export.shareHint': 'Link embeds your itinerary — no account needed.',
+    'export.open': 'Open',
+    'export.fromLink': 'Loaded shared itinerary',
+    'export.fromLinkHint': 'This plan was opened from a share link. Save it to keep it in your list.',
+
+    // Misc
+    'common.close': 'Close',
+    'common.confirm': 'Confirm',
+  },
+  zh: {
+    'app.title': '旅行行程规划器',
+    'app.subtitle': '按天和时段规划你的旅程',
+
+    'lang.label': '语言',
+    'lang.en': 'English',
+    'lang.zh': '中文',
+
+    'trips.title': '我的旅程',
+    'trips.new': '新建旅程',
+    'trips.empty': '还没有旅程。创建第一个旅程开始规划吧。',
+    'trips.delete': '删除',
+    'trips.confirmDelete': '确定删除这个旅程吗？此操作无法撤销。',
+
+    'form.name': '旅程名称',
+    'form.namePlaceholder': '例如：东京夏日之旅',
+    'form.destination': '目的地',
+    'form.destinationPlaceholder': '例如：日本 东京',
+    'form.startDate': '开始日期',
+    'form.endDate': '结束日期',
+    'form.days': '天数',
+    'form.create': '创建旅程',
+    'form.cancel': '取消',
+    'form.save': '保存',
+    'form.editTrip': '编辑旅程',
+    'form.creating': '创建中',
+
+    'itinerary.title': '行程安排',
+    'itinerary.day': '第',
+    'itinerary.date': '日期',
+    'itinerary.emptyDay': '这一天还没有安排活动。',
+    'itinerary.addActivity': '添加活动',
+    'itinerary.backToList': '返回旅程列表',
+    'itinerary.tripInfo': '旅程信息',
+
+    'activity.time': '时间',
+    'activity.title': '活动',
+    'activity.titlePlaceholder': '例如：参观浅草寺',
+    'activity.note': '备注',
+    'activity.notePlaceholder': '可选，填写细节……',
+    'activity.add': '添加',
+    'activity.save': '保存',
+    'activity.delete': '移除',
+    'activity.empty': '为这一天添加第一个活动吧。',
+
+    // Activity categories
+    'cat.food': '餐饮',
+    'cat.sight': '景点',
+    'cat.transport': '交通',
+    'cat.stay': '住宿',
+    'cat.other': '其他',
+    'activity.category': '类型',
+    'activity.address': '地址',
+    'activity.addressPlaceholder': '例如：东京都台东区浅草1-1',
+    'activity.geocode': '地图定位',
+    'activity.geocoding': '定位中…',
+    'activity.geoFail': '未找到该地址',
+    'activity.geoHint': '填写地址后点击「定位」即可在地图上标记。',
+
+    // Tickets / bookings on activities
+    'activity.ticketNo': '票号 / 预订号',
+    'activity.ticketNoPlaceholder': '例如：ABC12345',
+    'activity.price': '价格',
+    'activity.currency': '币种',
+    'activity.qrNote': '二维码 / 附件备注',
+    'activity.qrNotePlaceholder': '例如：截图存相册，闸机扫码',
+
+    // Flights
+    'flight.title': '机票',
+    'flight.add': '添加机票',
+    'flight.empty': '还没有添加机票。',
+    'flight.no': '航班号',
+    'flight.noPlaceholder': '例如：AK512',
+    'flight.departTime': '起飞',
+    'flight.arriveTime': '到达',
+    'flight.from': '出发',
+    'flight.fromPlaceholder': '例如：KUL',
+    'flight.to': '到达',
+    'flight.toPlaceholder': '例如：HND',
+    'flight.pnr': 'PNR / 预订号',
+    'flight.pnrPlaceholder': '例如：X7K2QP',
+
+    // Lodging / stay
+    'stay.title': '住宿',
+    'stay.add': '添加住宿',
+    'stay.empty': '还没有添加住宿。',
+    'stay.name': '酒店 / 住处',
+    'stay.namePlaceholder': '例如：新宿格兰贝尔酒店',
+    'stay.checkIn': '入住',
+    'stay.checkOut': '退房',
+    'stay.ref': '确认号',
+    'stay.refPlaceholder': '例如：BK-998877',
+    'stay.note': '备注',
+    'stay.edit': '编辑',
+
+    // Copy + sample
+    'copy': '复制',
+    'copied': '已复制',
+    'fillSample': '填样例',
+    'fillSampleFlight': '样例机票',
+    'fillSampleHotel': '样例酒店',
+    'fillSampleTicket': '样例门票',
+
+    // Budget
+    'budget.title': '预算',
+    'budget.total': '合计',
+    'budget.perDay': '日均',
+    'budget.byCurrency': '按币种',
+    'budget.noCost': '还没有记录费用。',
+    'budget.activityCost': '预计开支',
+    'budget.lodgingCost': '住宿费用',
+
+    // Packing checklist
+    'pack.title': '打包清单',
+    'pack.add': '添加物品',
+    'pack.placeholder': '例如：护照',
+    'pack.empty': '清单为空，添加要带的东西吧。',
+    'pack.addDefault': '添加常用物品',
+    'pack.clear': '清除已勾选',
+
+    // Map
+    'map.title': '地图',
+    'map.allPins': '全部活动地点',
+    'map.noPins': '暂无标记地点。给活动添加地址即可显示。',
+
+    // Export / share
+    'export.title': '导出与分享',
+    'export.pdf': '导出 PDF',
+    'export.text': '复制为文本',
+    'export.link': '分享链接',
+    'export.linkCopied': '链接已复制！',
+    'export.textCopied': '文本已复制！',
+    'export.shareHint': '链接已内嵌你的行程，无需登录。',
+    'export.open': '打开',
+    'export.fromLink': '已载入分享行程',
+    'export.fromLinkHint': '此行程来自分享链接。保存到列表即可长期保留。',
+
+    'common.close': '关闭',
+    'common.confirm': '确认',
+  },
+}
