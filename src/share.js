@@ -53,7 +53,9 @@ function dateForDay(startDate, dayIndex) {
   const d = new Date(startDate + 'T00:00:00')
   if (Number.isNaN(d.getTime())) return ''
   d.setDate(d.getDate() + dayIndex)
-  return d.toISOString().slice(0, 10)
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${d.getFullYear()}-${mm}-${dd}`
 }
 
 export function tripToText(trip, catName) {
@@ -63,33 +65,32 @@ export function tripToText(trip, catName) {
   if (trip.startDate) lines.push(`🗓 ${trip.startDate} · ${trip.days} days`)
   lines.push('')
 
-  if (trip.lodging && trip.lodging.length > 0) {
-    lines.push('## 🏨 Lodging')
-    trip.lodging.forEach((s) => {
-      const stay = [s.name, s.checkIn && s.checkOut ? `${s.checkIn}→${s.checkOut}` : '', s.ref ? `#${s.ref}` : '', s.price ? `${s.price} ${s.currency}` : ''].filter(Boolean).join(' · ')
-      lines.push(`  - ${stay}`)
-      if (s.address) lines.push(`    📍 ${s.address}`)
-    })
-    lines.push('')
-  }
-
   for (let i = 0; i < trip.days; i++) {
     const date = dateForDay(trip.startDate, i)
     lines.push(`--- Day ${i + 1}${date ? ` (${date})` : ''} ---`)
-    const items = trip.itinerary?.[i] || []
+    const items = (trip.itinerary?.[i] || []).slice().sort((a, b) => (a.time || '99:99').localeCompare(b.time || '99:99'))
     if (items.length === 0) {
       lines.push('  (no activities)')
     } else {
       items.forEach((a) => {
         const icon = a.category ? (catName[a.category] || '') : ''
         const addr = a.address ? ` @ ${a.address}` : ''
-        const cost = a.price ? ` [${a.price} ${a.currency}]` : ''
+        const cost = a.estCost || a.price ? ` [${a.estCost || a.price} ${a.currency}]` : ''
         const ticket = a.ticketNo ? ` (🎫 ${a.ticketNo})` : ''
         lines.push(
-          `  ${a.time || ''}  ${icon} ${a.title}${addr}${cost}${ticket}${a.note ? ` — ${a.note}` : ''}`,
+          `  ${a.time || ''}${a.endTime ? `-${a.endTime}` : ''}  ${icon} ${a.title}${addr}${cost}${ticket}${a.note ? ` — ${a.note}` : ''}`,
         )
+        ;(a.custom || []).forEach((r) => {
+          if (r.key || r.value) lines.push(`      · ${r.key}: ${r.value}`)
+        })
       })
     }
+    lines.push('')
+  }
+
+  if (trip.extraCosts && trip.extraCosts.length > 0) {
+    lines.push('## 💰 Other Expenses')
+    trip.extraCosts.forEach((e) => lines.push(`  - ${e.label}: ${e.amount} ${e.currency}`))
     lines.push('')
   }
 

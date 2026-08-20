@@ -28,32 +28,67 @@ export function toMYR(amount, currency) {
   return amt * rate
 }
 
-// Aggregate costs from a trip's activities + lodging.
-// Returns per-currency totals + MYR-converted totals (dual view).
-export function computeBudget(trip) {
-  const byCurrency = {}
-  let totalMYR = 0
+// Map a timeline item category to a budget grouping.
+export const BUDGET_GROUPS = {
+  food: 'budget.catFood',
+  sight: 'budget.catSight',
+  transport: 'budget.catTransport',
+  flight: 'budget.catFlight',
+  stay: 'budget.catStay',
+  other: 'budget.catOther',
+}
 
-  const add = (amount, currency) => {
+// Aggregate costs from the unified itinerary (single source) + standalone
+// extra costs. Estimated and Actual are tracked separately.
+export function computeBudget(trip) {
+  const estByCur = {}
+  const actByCur = {}
+  const byGroupEst = {} // group key -> MYR
+  const byGroupAct = {}
+  let estMYR = 0
+  let actMYR = 0
+
+  const add = (amount, currency, groupKey, isActual) => {
     if (amount == null || currency == null) return
     const amt = Number(amount)
     if (!Number.isFinite(amt) || amt === 0) return
-    byCurrency[currency] = (byCurrency[currency] || 0) + amt
-    totalMYR += toMYR(amt, currency)
+    const curMap = isActual ? actByCur : estByCur
+    curMap[currency] = (curMap[currency] || 0) + amt
+    const myr = toMYR(amt, currency)
+    if (isActual) {
+      actMYR += myr
+      byGroupAct[groupKey] = (byGroupAct[groupKey] || 0) + myr
+    } else {
+      estMYR += myr
+      byGroupEst[groupKey] = (byGroupEst[groupKey] || 0) + myr
+    }
   }
 
   const itinerary = trip.itinerary || {}
   Object.values(itinerary).forEach((list) => {
-    ;(list || []).forEach((a) => add(a.price, a.currency))
+    ;(list || []).forEach((a) => {
+      const group = BUDGET_GROUPS[a.category] || BUDGET_GROUPS.other
+      // Backward-compatible: `price` is treated as estimated cost.
+      const est = a.estCost !== '' && a.estCost != null ? a.estCost : a.price
+      const act = a.actCost !== '' && a.actCost != null ? a.actCost : ''
+      add(est, a.currency, group, false)
+      add(act, a.currency, group, true)
+    })
   })
 
-  ;(trip.lodging || []).forEach((s) => add(s.price, s.currency))
+  ;(trip.extraCosts || []).forEach((e) => {
+    add(e.amount, e.currency, e.group || BUDGET_GROUPS.other, false)
+  })
 
-  const days = Math.max(1, trip.days || 1)
+  const hasCost = estMYR > 0 || actMYR > 0
   return {
-    totalByCurrency: byCurrency,
-    totalMYR,
-    perDayMYR: totalMYR / days,
-    hasCost: Object.keys(byCurrency).length > 0,
+    estByCurrency: estByCur,
+    actByCurrency: actByCur,
+    estMYR,
+    actMYR,
+    remainingMYR: estMYR - actMYR,
+    byGroupEst,
+    byGroupAct,
+    hasCost,
   }
 }

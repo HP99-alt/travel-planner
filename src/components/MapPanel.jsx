@@ -87,9 +87,13 @@ export default function MapPanel({ trip }) {
   }, [pins, t])
 
   useEffect(() => {
-    // Fix map sizing once the container becomes visible.
-    if (mapRef.current) mapRef.current.invalidateSize()
-  })
+    // Fix map sizing once on mount and on window resize — NOT on every render
+    // (running invalidateSize each render was a key cause of input lag).
+    const fix = () => mapRef.current && mapRef.current.invalidateSize()
+    fix()
+    window.addEventListener('resize', fix)
+    return () => window.removeEventListener('resize', fix)
+  }, [])
 
   if (pins.length === 0) {
     return <p className="map-empty">{t('map.noPins')}</p>

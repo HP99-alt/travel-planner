@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { memo, useCallback, useEffect, useState } from 'react'
 import { useI18n } from './i18n/LanguageContext.jsx'
 import { useTheme } from './i18n/ThemeContext.jsx'
 import { loadTrips, saveTrips } from './storage.js'
@@ -6,16 +6,20 @@ import { readTripsFromHash, clearHash } from './share.js'
 import { createId } from './storage.js'
 import TripList from './components/TripList.jsx'
 import TripForm from './components/TripForm.jsx'
-import ImportExcelButton from './components/ImportExcelButton.jsx'
 import Itinerary from './components/Itinerary.jsx'
 import ExportPanel from './components/ExportPanel.jsx'
 import PdfView from './components/PdfView.jsx'
 import PackingList from './components/PackingList.jsx'
-import LodgingPanel from './components/LodgingPanel.jsx'
 import BudgetPanel from './components/BudgetPanel.jsx'
-import FlightsPanel from './components/FlightsPanel.jsx'
 import EmergencyPanel from './components/EmergencyPanel.jsx'
 import Sheet from './components/Sheet.jsx'
+
+// Memoize panels so keystroke updates in one panel don't re-render the others
+// (this is what caused the input lag / scroll stutter).
+const MemoItinerary = memo(Itinerary)
+const MemoBudget = memo(BudgetPanel)
+const MemoEmergency = memo(EmergencyPanel)
+const MemoPacking = memo(PackingList)
 
 export default function App() {
   const { t, lang, changeLang } = useI18n()
@@ -24,7 +28,7 @@ export default function App() {
   const [activeId, setActiveId] = useState(null)
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState(null)
-  const [sharedTrips, setSharedTrips] = useState(null) // trips loaded from a share link
+  const [sharedTrips, setSharedTrips] = useState(null)
 
   useEffect(() => {
     const fromHash = readTripsFromHash()
@@ -47,21 +51,15 @@ export default function App() {
   const sharedTrip = sharedTrips?.find((x) => x.id === activeId) || null
   const viewTrip = activeTrip || sharedTrip
 
-  function handleCreate(trip) {
+  // Stable callbacks so memoized children don't re-render on every keystroke.
+  const handleCreate = useCallback((trip) => {
     setTrips((prev) => [...prev, trip])
     setActiveId(trip.id)
     setShowForm(false)
-  }
+  }, [])
 
-  function handleImport(trip) {
-    setTrips((prev) => [...prev, trip])
-    setActiveId(trip.id)
-    setSharedTrips(null)
-  }
-
-  function handleUpdate(updated) {
+  const handleUpdate = useCallback((updated) => {
     if (sharedTrips) {
-      // Save shared trip into local list so edits persist.
       setTrips((prev) => {
         const exists = prev.some((x) => x.id === updated.id)
         return exists ? prev.map((x) => (x.id === updated.id ? updated : x)) : [...prev, updated]
@@ -70,29 +68,36 @@ export default function App() {
       return
     }
     setTrips((prev) => prev.map((x) => (x.id === updated.id ? updated : x)))
-  }
+  }, [sharedTrips])
 
-  function handleDelete(id) {
+  const handleDelete = useCallback((id) => {
     setTrips((prev) => prev.filter((x) => x.id !== id))
     if (activeId === id) setActiveId(null)
-  }
+  }, [activeId])
 
-  function handleEdit(trip) {
+  const handleEdit = useCallback((trip) => {
     setEditing(trip)
     setShowForm(true)
-  }
+  }, [])
 
-  function handleSubmitForm(trip) {
-    if (editing) {
-      handleUpdate(trip)
-      setEditing(null)
-    } else {
-      handleCreate(trip)
-    }
+  const handleSubmitForm = useCallback((trip) => {
+    setTrips((prev) =>
+      editing
+        ? prev.map((x) => (x.id === trip.id ? trip : x))
+        : [...prev, trip],
+    )
+    if (!editing) setActiveId(trip.id)
     setShowForm(false)
-  }
+    setEditing(null)
+  }, [editing])
 
-  function saveSharedTrip() {
+  const handleImport = useCallback((trip) => {
+    setTrips((prev) => [...prev, trip])
+    setActiveId(trip.id)
+    setSharedTrips(null)
+  }, [])
+
+  const saveSharedTrip = useCallback(() => {
     if (!sharedTrip) return
     setTrips((prev) => {
       const exists = prev.some((x) => x.id === sharedTrip.id)
@@ -101,7 +106,7 @@ export default function App() {
         : [...prev, { ...sharedTrip, id: createId() }]
     })
     setSharedTrips(null)
-  }
+  }, [sharedTrip])
 
   return (
     <div className="app">
@@ -123,16 +128,10 @@ export default function App() {
             {theme === 'auto' ? '🌀' : effectiveTheme === 'dark' ? '🌙' : '☀️'}
           </button>
           <div className="lang-toggle" role="group" aria-label={t('lang.label')}>
-            <button
-              className={lang === 'en' ? 'active' : ''}
-              onClick={() => changeLang('en')}
-            >
+            <button className={lang === 'en' ? 'active' : ''} onClick={() => changeLang('en')}>
               {t('lang.en')}
             </button>
-            <button
-              className={lang === 'zh' ? 'active' : ''}
-              onClick={() => changeLang('zh')}
-            >
+            <button className={lang === 'zh' ? 'active' : ''} onClick={() => changeLang('zh')}>
               {t('lang.zh')}
             </button>
           </div>
@@ -162,7 +161,7 @@ export default function App() {
               onImport={handleImport}
               onDelete={handleDelete}
             />
-            {viewTrip && <PackingList trip={viewTrip} onUpdate={handleUpdate} />}
+            {viewTrip && <MemoPacking trip={viewTrip} onUpdate={handleUpdate} />}
           </div>
         )}
 
@@ -173,12 +172,10 @@ export default function App() {
                 <ExportPanel trip={viewTrip} />
               </div>
               <div className="detail-grid">
-                <Itinerary trip={viewTrip} onUpdate={handleUpdate} />
+                <MemoItinerary trip={viewTrip} onUpdate={handleUpdate} />
                 <aside className="detail-side">
-                  <FlightsPanel trip={viewTrip} onUpdate={handleUpdate} />
-                  <LodgingPanel trip={viewTrip} onUpdate={handleUpdate} />
-                  <BudgetPanel trip={viewTrip} />
-                  <EmergencyPanel trip={viewTrip} onUpdate={handleUpdate} />
+                  <MemoBudget trip={viewTrip} onUpdate={handleUpdate} />
+                  <MemoEmergency trip={viewTrip} onUpdate={handleUpdate} />
                 </aside>
               </div>
             </>
@@ -208,7 +205,6 @@ export default function App() {
         />
       </Sheet>
 
-      {/* Hidden render root used by PDF export */}
       <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
         {viewTrip && <PdfView trip={viewTrip} />}
       </div>

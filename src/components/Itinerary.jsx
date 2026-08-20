@@ -14,8 +14,6 @@ function isoYMD(y, m, d) {
   return `${y}-${mm}-${dd}`
 }
 
-// Compute the calendar date for a given day index from the trip start date.
-// Day 1 (index 0) === start date. Timezone-safe (no toISOString).
 function dateForDay(startDate, dayIndex) {
   if (!startDate) return ''
   const d = new Date(startDate + 'T00:00:00')
@@ -24,22 +22,37 @@ function dateForDay(startDate, dayIndex) {
   return isoYMD(d.getFullYear(), d.getMonth(), d.getDate())
 }
 
-// Geocode an address via OpenStreetMap Nominatim (free, no key).
+// Compute duration label (e.g. "1h 30m") from start/end time; blank if invalid.
+function computeDuration(start, end) {
+  if (!start || !end) return ''
+  const [sh, sm] = start.split(':').map(Number)
+  const [eh, em] = end.split(':').map(Number)
+  if ([sh, sm, eh, em].some((n) => Number.isNaN(n))) return ''
+  let mins = eh * 60 + em - (sh * 60 + sm)
+  if (mins <= 0) return ''
+  const h = Math.floor(mins / 60)
+  const m = mins % 60
+  if (h && m) return `${h}h ${m}m`
+  if (h) return `${h}h`
+  return `${m}m`
+}
+
 async function geocode(address) {
   const url =
     'https://nominatim.openstreetmap.org/search?format=json&limit=1&q=' +
     encodeURIComponent(address)
-  const res = await fetch(url, {
-    headers: { 'Accept-Language': 'en' },
-  })
-  const data = await res.json()
-  if (Array.isArray(data) && data.length > 0) {
-    return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) }
+  try {
+    const res = await fetch(url, { headers: { 'Accept-Language': 'en' } })
+    const data = await res.json()
+    if (Array.isArray(data) && data.length > 0) {
+      return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) }
+    }
+  } catch {
+    /* best-effort */
   }
   return null
 }
 
-// Sort activities for a day by start time (HH:MM) ascending; blank times last.
 function sortByTime(list) {
   return [...list].sort((a, b) => {
     const ta = a.time || '99:99'
@@ -48,7 +61,6 @@ function sortByTime(list) {
   })
 }
 
-// Format 24h "09:00" -> "9:00 AM" (locale-aware for zh/en handled by i18n).
 function formatTime12(time, lang) {
   if (!time) return ''
   const [hStr, mStr] = time.split(':')
@@ -60,7 +72,6 @@ function formatTime12(time, lang) {
   return `${h12}:${m} ${ampm}`
 }
 
-// Format a price with its currency, e.g. "RM 15" / "¥ 3000".
 function formatCost(price, currency) {
   if (price === '' || price == null) return ''
   const sym = {
@@ -70,17 +81,29 @@ function formatCost(price, currency) {
   return `${sym} ${price}`
 }
 
+function readImage(file) {
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader()
+    fr.onload = () => resolve(fr.result)
+    fr.onerror = reject
+    fr.readAsDataURL(file)
+  })
+}
+
 function emptyDraft() {
   return {
     time: '',
+    endTime: '',
     title: '',
     note: '',
-    category: 'other',
+    category: 'activity',
     address: '',
     ticketNo: '',
-    price: '',
+    estCost: '',
+    actCost: '',
     currency: 'MYR',
-    qrNote: '',
+    images: [],
+    custom: [],
   }
 }
 
@@ -89,15 +112,15 @@ export default function Itinerary({ trip, onUpdate }) {
   const [addingForDay, setAddingForDay] = useState(null)
   const [draft, setDraft] = useState(emptyDraft())
   const [showAdvanced, setShowAdvanced] = useState(false)
+  const [showBudget, setShowBudget] = useState(false)
   const [dragIndex, setDragIndex] = useState(null)
-  const [geoState, setGeoState] = useState({}) // per activity id: 'ing' | 'fail'
-  // editingId holds the id of the activity being edited, or 'new' for a fresh add.
-  const [editingId, setEditingId] = useState(null)
+  const [geoState, setGeoState] = useState({})
+  const [editingId, setEditingId] = useState(null) // activity id, or 'new' for dup
   const [editDraft, setEditDraft] = useState(null)
   const [editAdvanced, setEditAdvanced] = useState(false)
-  // Holds the day index of the activity currently being edited/duplicated,
-  // so commitEdit/commitDuplicate know which day to write into.
+  const [editBudget, setEditBudget] = useState(false)
   const editDayRef = useRef(null)
+  const fileRef = useRef(null)
 
   const dayIndices = Array.from({ length: trip.days }, (_, i) => i)
   const itinerary = trip.itinerary || {}
@@ -107,202 +130,116 @@ export default function Itinerary({ trip, onUpdate }) {
   }
 
   function updateDay(dayIndex, list) {
-    // Auto-sort the day's activities by start time (HH:MM) so the stored
-    // order always matches the timeline view.
     onUpdate({ ...trip, itinerary: { ...itinerary, [dayIndex]: sortByTime(list) } })
+  }
+
+  function patchDay(dayIndex, activityId, patch) {
+    updateDay(
+      dayIndex,
+      (itinerary[dayIndex] || []).map((a) => (a.id === activityId ? { ...a, ...patch } : a)),
+    )
+  }
+
+  function removeActivity(dayIndex, activityId) {
+    updateDay(dayIndex, (itinerary[dayIndex] || []).filter((a) => a.id !== activityId))
+  }
+
+  async function persist(item, dayIndex, isNew) {
+    let lat = undefined
+    let lng = undefined
+    if (item.address?.trim()) {
+      const g = await geocode(item.address.trim())
+      if (g) {
+        lat = g.lat
+        lng = g.lng
+      }
+    }
+    const full = { ...item, ...(lat != null ? { lat, lng } : {}) }
+    if (isNew) updateDay(dayIndex, [...(itinerary[dayIndex] || []), full])
+    else patchDay(dayIndex, item.id, full)
   }
 
   function startAdd(dayIndex) {
     setAddingForDay(dayIndex)
     setEditingId(null)
     setShowAdvanced(false)
-    setDraft(emptyDraft())
-    setDraft((d) => ({ ...d, time: '09:00' }))
+    setShowBudget(false)
+    setDraft({ ...emptyDraft(), time: '09:00' })
   }
 
-  function fillSampleTicket(dayIndex) {
-    setAddingForDay(dayIndex)
-    setEditingId(null)
-    setShowAdvanced(true)
-    setDraft({
-      time: '14:00',
-      title: 'teamLab Planets Tokyo',
-      note: 'Evening session',
-      category: 'sight',
-      address: '6-1-16 Toyosu, Koto City, Tokyo',
-      ticketNo: 'TK-774100',
-      price: '3800',
-      currency: 'JPY',
-      qrNote: 'QR screenshot in Photos',
-    })
-  }
-
-  async function commitAdd() {
-    if (!draft.title.trim()) return
-    let lat = undefined
-    let lng = undefined
-    if (draft.address.trim()) {
-      try {
-        const g = await geocode(draft.address.trim())
-        if (g) {
-          lat = g.lat
-          lng = g.lng
-        }
-      } catch {
-        /* geocoding is best-effort */
-      }
-    }
-    const activity = {
-      id: createId(),
-      time: draft.time,
-      title: draft.title.trim(),
-      note: draft.note.trim(),
-      category: draft.category,
-      address: draft.address.trim(),
-      ticketNo: draft.ticketNo.trim(),
-      price: draft.price === '' ? '' : Number(draft.price),
-      currency: draft.currency,
-      qrNote: draft.qrNote.trim(),
-      ...(lat != null ? { lat, lng } : {}),
-    }
-    updateDay(addingForDay, [...(itinerary[addingForDay] || []), activity])
-    setAddingForDay(null)
-    setShowAdvanced(false)
-  }
-
-  function removeActivity(dayIndex, activityId) {
-    updateDay(
-      dayIndex,
-      (itinerary[dayIndex] || []).filter((a) => a.id !== activityId),
-    )
-  }
-
-  function setActivityField(dayIndex, activityId, patch) {
-    updateDay(
-      dayIndex,
-      (itinerary[dayIndex] || []).map((a) =>
-        a.id === activityId ? { ...a, ...patch } : a,
-      ),
-    )
-  }
-
-  function startEdit(dayIndex, activity) {
-    setEditingId(activity.id)
+  function startEdit(dayIndex, a) {
+    setEditingId(a.id)
     setAddingForDay(null)
     setDraft(null)
-    setEditDraft({
-      time: activity.time || '',
-      title: activity.title || '',
-      note: activity.note || '',
-      category: activity.category || 'other',
-      address: activity.address || '',
-      ticketNo: activity.ticketNo || '',
-      price: activity.price ?? '',
-      currency: activity.currency || 'MYR',
-      qrNote: activity.qrNote || '',
-    })
-    setEditAdvanced(!!(activity.ticketNo || activity.qrNote))
     editDayRef.current = dayIndex
+    setEditDraft({ ...emptyDraft(), ...a, images: a.images || [], custom: a.custom || [] })
+    setEditAdvanced(!!(a.ticketNo || (a.custom && a.custom.length)))
+    setEditBudget(a.estCost !== '' || a.actCost !== '')
   }
 
-  function startDuplicate(dayIndex, activity) {
+  function startDuplicate(dayIndex, a) {
     setEditingId('new')
     setAddingForDay(dayIndex)
     editDayRef.current = dayIndex
-    setEditAdvanced(!!(activity.ticketNo || activity.qrNote))
-    setDraft({
-      time: activity.time || '',
-      title: activity.title ? `${activity.title} (copy)` : '',
-      note: activity.note || '',
-      category: activity.category || 'other',
-      address: activity.address || '',
-      ticketNo: '',
-      price: activity.price ?? '',
-      currency: activity.currency || 'MYR',
-      qrNote: '',
-    })
+    setDraft({ ...emptyDraft(), ...a, id: undefined, title: a.title ? `${a.title} (copy)` : '', ticketNo: '', images: a.images || [], custom: a.custom || [] })
+    setShowAdvanced(!!(a.ticketNo || (a.custom && a.custom.length)))
+    setShowBudget(a.estCost !== '' || a.actCost !== '')
   }
 
-  function commitEdit(activityId) {
-    if (!editDraft.title.trim()) return
-    setActivityField(editDayRef.current, activityId, {
-      time: editDraft.time,
-      title: editDraft.title.trim(),
-      note: editDraft.note.trim(),
-      category: editDraft.category,
-      address: editDraft.address.trim(),
-      ticketNo: editDraft.ticketNo.trim(),
-      price: editDraft.price === '' ? '' : Number(editDraft.price),
-      currency: editDraft.currency,
-      qrNote: editDraft.qrNote.trim(),
-    })
+  async function commitAdd() {
+    if (!(draft.title || '').trim()) return
+    await persist({ ...draft, id: createId() }, addingForDay, true)
+    setAddingForDay(null)
+    setShowAdvanced(false)
+    setShowBudget(false)
+  }
+
+  async function commitEdit(activityId) {
+    if (!(editDraft.title || '').trim()) return
+    await persist(editDraft, editDayRef.current, false)
     setEditingId(null)
     setEditDraft(null)
     setEditAdvanced(false)
+    setEditBudget(false)
   }
 
   async function commitDuplicate(dayIndex) {
-    if (!draft.title.trim()) return
-    let lat = undefined
-    let lng = undefined
-    if (draft.address.trim()) {
-      try {
-        const g = await geocode(draft.address.trim())
-        if (g) {
-          lat = g.lat
-          lng = g.lng
-        }
-      } catch {
-        /* best-effort */
-      }
-    }
-    const activity = {
-      id: createId(),
-      time: draft.time,
-      title: draft.title.trim(),
-      note: draft.note.trim(),
-      category: draft.category,
-      address: draft.address.trim(),
-      ticketNo: draft.ticketNo.trim(),
-      price: draft.price === '' ? '' : Number(draft.price),
-      currency: draft.currency,
-      qrNote: draft.qrNote.trim(),
-      ...(lat != null ? { lat, lng } : {}),
-    }
-    updateDay(dayIndex, [...(itinerary[dayIndex] || []), activity])
+    if (!(draft.title || '').trim()) return
+    await persist({ ...draft, id: createId() }, dayIndex, true)
     setAddingForDay(null)
     setEditingId(null)
     setShowAdvanced(false)
+    setShowBudget(false)
   }
 
-  async function locate(dayIndex, activity) {
-    if (!activity.address?.trim()) return
-    setGeoState((s) => ({ ...s, [activity.id]: 'ing' }))
-    try {
-      const g = await geocode(activity.address.trim())
-      if (g) {
-        setActivityField(dayIndex, activity.id, { lat: g.lat, lng: g.lng })
-        setGeoState((s) => {
-          const n = { ...s }
-          delete n[activity.id]
-          return n
-        })
-      } else {
-        setGeoState((s) => ({ ...s, [activity.id]: 'fail' }))
+  // Custom key-value rows operate on the draft's `custom` array. Each helper
+  // receives the draft setter so it works for both the ADD draft and the EDIT
+  // draft (draft / editDraft) without tangled prop wiring.
+  function addCustom(setDraftFn) {
+    setDraftFn((d) => ({ ...d, custom: [...(d.custom || []), { key: '', value: '' }] }))
+  }
+  function setCustomAt(setDraftFn, i, patch) {
+    setDraftFn((d) => ({
+      ...d,
+      custom: (d.custom || []).map((r, idx) => (idx === i ? { ...r, ...patch } : r)),
+    }))
+  }
+  function removeCustomAt(setDraftFn, i) {
+    setDraftFn((d) => ({ ...d, custom: (d.custom || []).filter((_, idx) => idx !== i) }))
+  }
+
+  async function onImagesPicked(files, arr, setArr) {
+    const adds = []
+    for (const f of Array.from(files)) {
+      if (f.type.startsWith('image/')) {
+        try {
+          adds.push(await readImage(f))
+        } catch {
+          /* skip */
+        }
       }
-    } catch {
-      setGeoState((s) => ({ ...s, [activity.id]: 'fail' }))
     }
-  }
-
-  // Drag & drop reordering within a day.
-  function onDrop(dayIndex, targetIndex) {
-    if (dragIndex == null) return
-    const list = [...(itinerary[dayIndex] || [])]
-    const [moved] = list.splice(dragIndex, 1)
-    list.splice(targetIndex, 0, moved)
-    setDragIndex(null)
-    updateDay(dayIndex, list)
+    setArr([...arr, ...adds])
   }
 
   return (
@@ -317,6 +254,7 @@ export default function Itinerary({ trip, onUpdate }) {
           {dayIndices.map((dayIndex) => {
             const items = activitiesForDay(dayIndex)
             const date = dateForDay(trip.startDate, dayIndex)
+            const isAdding = addingForDay === dayIndex
             return (
               <div className="day-card" key={dayIndex}>
                 <div className="day-head">
@@ -327,35 +265,42 @@ export default function Itinerary({ trip, onUpdate }) {
                 </div>
 
                 <ul className="timeline">
-                  {items.length === 0 && addingForDay !== dayIndex && editingId == null && (
+                  {items.length === 0 && !isAdding && editingId == null && (
                     <li className="activity-empty">{t('itinerary.emptyDay')}</li>
                   )}
                   {items.map((a, idx) => {
                     if (editingId === a.id && editDraft) {
-                      // Edit form for this activity.
-                      const fd = editDraft
-                      const setFd = (patch) => setEditDraft({ ...editDraft, ...patch })
                       return (
                         <li className="tl-item edit-mode" key={a.id}>
                           <ActivityForm
-                            draft={fd}
-                            setDraft={setFd}
+                            draft={editDraft}
+                            setDraft={(patch) =>
+                              setEditDraft((d) => ({ ...(d || {}), ...(typeof patch === 'function' ? patch(d) : patch) }))
+                            }
                             showAdvanced={editAdvanced}
                             setShowAdvanced={setEditAdvanced}
+                            showBudget={editBudget}
+                            setShowBudget={setEditBudget}
                             onAdd={() => commitEdit(a.id)}
                             onCancel={() => {
                               setEditingId(null)
                               setEditDraft(null)
-                              setEditAdvanced(false)
                             }}
                             addLabel={t('activity.save')}
                             t={t}
+                            lang={lang}
                             CURRENCIES={CURRENCIES}
                             CATEGORIES={CATEGORIES}
+                            addCustom={addCustom}
+                            setCustomAt={setCustomAt}
+                            removeCustomAt={removeCustomAt}
+                            onImagesPicked={onImagesPicked}
+                            fileRef={fileRef}
                           />
                         </li>
                       )
                     }
+                    const dur = computeDuration(a.time, a.endTime)
                     return (
                       <li
                         className="tl-item"
@@ -364,10 +309,18 @@ export default function Itinerary({ trip, onUpdate }) {
                         onDragStart={() => setDragIndex(idx)}
                         onDragEnd={() => setDragIndex(null)}
                         onDragOver={(e) => e.preventDefault()}
-                        onDrop={() => onDrop(dayIndex, idx)}
+                        onDrop={() => {
+                          if (dragIndex == null) return
+                          const list = [...(itinerary[dayIndex] || [])]
+                          const [moved] = list.splice(dragIndex, 1)
+                          list.splice(idx, 0, moved)
+                          setDragIndex(null)
+                          updateDay(dayIndex, list)
+                        }}
                       >
                         <div className="tl-time">
                           {a.time ? formatTime12(a.time, lang) : '—'}
+                          {a.endTime ? ` – ${formatTime12(a.endTime, lang)}` : ''}
                         </div>
                         <div className="tl-dot" aria-hidden="true">
                           {categoryIcon(a.category)}
@@ -380,96 +333,82 @@ export default function Itinerary({ trip, onUpdate }) {
                               <MapOpenButton address={a.address} />
                             </div>
                           )}
-                          {a.price !== '' && a.price != null && (
-                            <div className="tl-meta">💰 {formatCost(a.price, a.currency)}</div>
-                          )}
+                          {dur && <div className="tl-meta">⏱ {dur}</div>}
                           {a.note && <div className="tl-note">{a.note}</div>}
+                          {(a.estCost !== '' && a.estCost != null) || (a.actCost !== '' && a.actCost != null) ? (
+                            <div className="tl-meta">
+                              💰{' '}
+                              {a.actCost !== '' && a.actCost != null
+                                ? `${formatCost(a.actCost, a.currency)} (${t('budget.actual')})`
+                                : formatCost(a.estCost, a.currency)}
+                            </div>
+                          ) : null}
+                          {a.images && a.images.length > 0 && (
+                            <div className="tl-images">
+                              {a.images.map((src, i) => (
+                                <img key={i} src={src} alt="" className="tl-thumb" />
+                              ))}
+                            </div>
+                          )}
+                          {a.custom && a.custom.length > 0 && (
+                            <div className="tl-custom">
+                              {a.custom.map((row, i) => (
+                                <div className="tl-custom-row" key={i}>
+                                  <span className="tl-custom-k">{row.key}</span>
+                                  <span className="tl-custom-v">
+                                    {row.value}
+                                    {row.value && <CopyButton value={row.value} />}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                           <div className="tl-actions">
-                            <button
-                              type="button"
-                              className="btn ghost tiny"
-                              onClick={() => startEdit(dayIndex, a)}
-                            >
+                            <button type="button" className="btn ghost tiny" onClick={() => startEdit(dayIndex, a)}>
                               ✏️ {t('activity.edit')}
                             </button>
-                            <button
-                              type="button"
-                              className="btn ghost tiny"
-                              onClick={() => startDuplicate(dayIndex, a)}
-                            >
+                            <button type="button" className="btn ghost tiny" onClick={() => startDuplicate(dayIndex, a)}>
                               📋 {t('activity.duplicate')}
                             </button>
-                            <button
-                              type="button"
-                              className="btn danger tiny"
-                              onClick={() => removeActivity(dayIndex, a.id)}
-                            >
+                            <button type="button" className="btn danger tiny" onClick={() => removeActivity(dayIndex, a.id)}>
                               {t('activity.delete')}
                             </button>
                           </div>
                         </div>
-                        {(a.ticketNo || a.qrNote) && (
-                          <div className="tl-ticket">
-                            {a.ticketNo && (
-                              <div className="field-with-copy">
-                                <input
-                                  type="text"
-                                  className="ticket-input"
-                                  value={a.ticketNo}
-                                  readOnly
-                                />
-                                <CopyButton value={a.ticketNo} />
-                              </div>
-                            )}
-                            {a.qrNote && <div className="tl-qr">📎 {a.qrNote}</div>}
-                          </div>
-                        )}
                       </li>
                     )
                   })}
                 </ul>
 
-                {addingForDay === dayIndex ? (
-                  editingId === 'new' ? (
-                    // Duplicate form (reuses draft + add layout)
-                    <ActivityForm
-                      draft={draft}
-                      setDraft={(patch) => setDraft({ ...draft, ...patch })}
-                      showAdvanced={showAdvanced}
-                      setShowAdvanced={setShowAdvanced}
-                      onAdd={() => commitDuplicate(dayIndex)}
-                      onCancel={() => {
-                        setAddingForDay(null)
-                        setEditingId(null)
-                        setShowAdvanced(false)
-                      }}
-                      addLabel={t('activity.add')}
-                      t={t}
-                      CURRENCIES={CURRENCIES}
-                      CATEGORIES={CATEGORIES}
-                    />
-                  ) : (
-                    <ActivityForm
-                      draft={draft}
-                      setDraft={(patch) => setDraft({ ...draft, ...patch })}
-                      showAdvanced={showAdvanced}
-                      setShowAdvanced={setShowAdvanced}
-                      onAdd={commitAdd}
-                      onCancel={() => {
-                        setAddingForDay(null)
-                        setShowAdvanced(false)
-                      }}
-                      addLabel={t('activity.add')}
-                      t={t}
-                      CURRENCIES={CURRENCIES}
-                      CATEGORIES={CATEGORIES}
-                    />
-                  )
+                {isAdding ? (
+                  <ActivityForm
+                    draft={draft}
+                    setDraft={(patch) =>
+                      setDraft((d) => ({ ...(d || {}), ...(typeof patch === 'function' ? patch(d) : patch) }))
+                    }
+                    showAdvanced={showAdvanced}
+                    setShowAdvanced={setShowAdvanced}
+                    showBudget={showBudget}
+                    setShowBudget={setShowBudget}
+                    onAdd={commitAdd}
+                    onCancel={() => {
+                      setAddingForDay(null)
+                      setShowAdvanced(false)
+                      setShowBudget(false)
+                    }}
+                    addLabel={t('activity.add')}
+                    t={t}
+                    lang={lang}
+                    CURRENCIES={CURRENCIES}
+                    CATEGORIES={CATEGORIES}
+                    addCustom={addCustom}
+                    setCustomAt={setCustomAt}
+                    removeCustomAt={removeCustomAt}
+                    onImagesPicked={onImagesPicked}
+                    fileRef={fileRef}
+                  />
                 ) : (
-                  <button
-                    className="btn ghost small add-activity"
-                    onClick={() => startAdd(dayIndex)}
-                  >
+                  <button className="btn ghost small add-activity" onClick={() => startAdd(dayIndex)}>
                     + {t('itinerary.addActivity')}
                   </button>
                 )}
@@ -487,82 +426,72 @@ export default function Itinerary({ trip, onUpdate }) {
   )
 }
 
-// Shared Add / Edit / Duplicate form. Primary fields: time, name, location,
-// notes, cost. Secondary fields behind "Advanced Details": category, ticket,
-// booking ref, screenshot/qr note.
+// Shared Add / Edit / Duplicate form. Minimal by default; Advanced Details and
+// Budget expand on demand. `draft` shape matches the unified Activity model.
 function ActivityForm({
   draft,
   setDraft,
   showAdvanced,
   setShowAdvanced,
+  showBudget,
+  setShowBudget,
   onAdd,
   onCancel,
   addLabel,
   t,
+  lang,
   CURRENCIES,
   CATEGORIES,
+  addCustom,
+  setCustomAt,
+  removeCustomAt,
+  onImagesPicked,
+  fileRef,
 }) {
-  const set = (patch) => setDraft(patch)
+  // Merge patch into the draft (works for both the ADD draft and the EDIT
+  // draft, whose setters have different shapes). Always use a functional
+  // update so a single-field edit never wipes the other fields.
+  const set = (patch) =>
+    setDraft((d) => ({ ...(d || {}), ...(typeof patch === 'function' ? patch(d) : patch) }))
+  const dur = computeDuration(draft.time, draft.endTime)
+  const custom = draft.custom || []
+
   return (
     <div className="activity-form">
       <div className="af-row">
+        <input type="time" value={draft.time} aria-label={t('activity.startTime')} onChange={(e) => set({ time: e.target.value })} />
+        <input type="time" value={draft.endTime} aria-label={t('activity.endTime')} onChange={(e) => set({ endTime: e.target.value })} />
+      </div>
+      {dur && <div className="af-dur">⏱ {dur}</div>}
+
+      <input type="text" className="af-title" placeholder={t('activity.titlePlaceholder')} value={draft.title} autoFocus onChange={(e) => set({ title: e.target.value })} onKeyDown={(e) => { if (e.key === 'Enter') onAdd() }} />
+      <input type="text" placeholder={t('activity.notePlaceholder')} value={draft.note} onChange={(e) => set({ note: e.target.value })} />
+      <input type="text" placeholder={t('activity.addressPlaceholder')} value={draft.address} onChange={(e) => set({ address: e.target.value })} />
+
+      <div className="af-images">
+        {(draft.images || []).map((src, i) => (
+          <div className="af-thumb-wrap" key={i}>
+            <img src={src} alt="" className="af-thumb" />
+            <button type="button" className="af-thumb-x" onClick={() => set({ images: draft.images.filter((_, idx) => idx !== i) })} aria-label="delete">×</button>
+          </div>
+        ))}
+        <button type="button" className="af-img-add" onClick={() => fileRef.current?.click()}>
+          🖼 {t('activity.image')}
+        </button>
         <input
-          type="time"
-          value={draft.time}
-          onChange={(e) => set({ time: e.target.value })}
-          aria-label={t('activity.time')}
-        />
-        <input
-          type="text"
-          className="af-title"
-          placeholder={t('activity.titlePlaceholder')}
-          value={draft.title}
-          autoFocus
-          onChange={(e) => set({ title: e.target.value })}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') onAdd()
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          multiple
+          style={{ display: 'none' }}
+          onChange={(e) => {
+            onImagesPicked(e.target.files, draft.images || [], (imgs) => set({ images: imgs }))
+            e.target.value = ''
           }}
         />
       </div>
-      <input
-        type="text"
-        placeholder={t('activity.addressPlaceholder')}
-        value={draft.address}
-        onChange={(e) => set({ address: e.target.value })}
-      />
-      <input
-        type="text"
-        placeholder={t('activity.notePlaceholder')}
-        value={draft.note}
-        onChange={(e) => set({ note: e.target.value })}
-      />
-      <div className="af-row">
-        <input
-          type="number"
-          min="0"
-          step="0.01"
-          placeholder={t('activity.price')}
-          value={draft.price}
-          onChange={(e) => set({ price: e.target.value })}
-        />
-        <select
-          value={draft.currency}
-          onChange={(e) => set({ currency: e.target.value })}
-        >
-          {CURRENCIES.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
-      </div>
 
-      <button
-        type="button"
-        className="adv-toggle"
-        onClick={() => setShowAdvanced(!showAdvanced)}
-        aria-expanded={showAdvanced}
-      >
+      <button type="button" className="adv-toggle" onClick={() => setShowAdvanced(!showAdvanced)} aria-expanded={showAdvanced}>
         {showAdvanced ? '▾' : '▸'} {t('activity.advanced')}
       </button>
 
@@ -570,39 +499,56 @@ function ActivityForm({
         <div className="adv-fields">
           <div className="cat-row">
             {CATEGORIES.map((c) => (
-              <button
-                type="button"
-                key={c.key}
-                className={`cat-chip ${draft.category === c.key ? 'active' : ''}`}
-                onClick={() => set({ category: c.key })}
-                title={t(c.labelKey)}
-              >
+              <button type="button" key={c.key} className={`cat-chip ${draft.category === c.key ? 'active' : ''}`} onClick={() => set({ category: c.key })} title={t(c.labelKey)}>
                 {c.icon}
               </button>
             ))}
           </div>
-          <input
-            type="text"
-            placeholder={t('activity.ticketNoPlaceholder')}
-            value={draft.ticketNo}
-            onChange={(e) => set({ ticketNo: e.target.value })}
-          />
-          <input
-            type="text"
-            placeholder={t('activity.qrNotePlaceholder')}
-            value={draft.qrNote}
-            onChange={(e) => set({ qrNote: e.target.value })}
-          />
+          <div className="af-row">
+            <input type="text" placeholder={t('activity.ticketNoPlaceholder')} value={draft.ticketNo} onChange={(e) => set({ ticketNo: e.target.value })} />
+          </div>
+          <div className="custom-rows">
+            {custom.map((row, i) => (
+              <div className="custom-row" key={i}>
+                <input type="text" placeholder={t('activity.fieldName')} value={row.key} onChange={(e) => setCustomAt(setDraft, i, { key: e.target.value })} />
+                <input type="text" placeholder={t('activity.fieldValue')} value={row.value} onChange={(e) => setCustomAt(setDraft, i, { value: e.target.value })} />
+                <button type="button" className="custom-x" onClick={() => removeCustomAt(setDraft, i)} aria-label="delete">×</button>
+              </div>
+            ))}
+            <button type="button" className="custom-add" onClick={() => addCustom(setDraft)}>
+              + {t('activity.addRow')}
+            </button>
+          </div>
+        </div>
+      )}
+
+      <button type="button" className="adv-toggle" onClick={() => setShowBudget(!showBudget)} aria-expanded={showBudget}>
+        {showBudget ? '▾' : '▸'} {t('activity.budget')}
+      </button>
+
+      {showBudget && (
+        <div className="adv-fields">
+          <div className="af-row">
+            <label className="af-cost">
+              <span>{t('budget.estimated')}</span>
+              <input type="number" min="0" step="0.01" value={draft.estCost} onChange={(e) => set({ estCost: e.target.value })} />
+            </label>
+            <label className="af-cost">
+              <span>{t('budget.actual')}</span>
+              <input type="number" min="0" step="0.01" value={draft.actCost} onChange={(e) => set({ actCost: e.target.value })} />
+            </label>
+            <select value={draft.currency} onChange={(e) => set({ currency: e.target.value })}>
+              {CURRENCIES.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </div>
         </div>
       )}
 
       <div className="form-actions">
-        <button className="btn ghost small" onClick={onCancel}>
-          {t('form.cancel')}
-        </button>
-        <button className="btn primary small" onClick={onAdd} disabled={!draft.title.trim()}>
-          {addLabel}
-        </button>
+        <button className="btn ghost small" onClick={onCancel}>{t('form.cancel')}</button>
+        <button className="btn primary small" onClick={onAdd} disabled={!(draft.title || '').trim()}>{addLabel}</button>
       </div>
     </div>
   )

@@ -7,7 +7,9 @@ function dateForDay(startDate, dayIndex) {
   const d = new Date(startDate + 'T00:00:00')
   if (Number.isNaN(d.getTime())) return ''
   d.setDate(d.getDate() + dayIndex)
-  return d.toISOString().slice(0, 10)
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${d.getFullYear()}-${mm}-${dd}`
 }
 
 // Separate, print-optimized rendering of the trip used as the PDF source.
@@ -26,33 +28,11 @@ export default function PdfView({ trip }) {
         )}
       </div>
 
-      {trip.lodging && trip.lodging.length > 0 && (
-        <div className="pdf-day">
-          <h3>🏨 {t('stay.title')}</h3>
-          <table className="pdf-table">
-            <tbody>
-              {trip.lodging.map((s) => (
-                <tr key={s.id}>
-                  <td className="pdf-icon">🏨</td>
-                  <td>
-                    <strong>{s.name}</strong>
-                    {s.checkIn || s.checkOut
-                      ? ` · ${s.checkIn || ''} → ${s.checkOut || ''}`
-                      : ''}
-                    {s.ref ? ` · #${s.ref}` : ''}
-                    {s.price ? ` · ${s.price} ${s.currency}` : ''}
-                    {s.address ? <div className="pdf-addr">📍 {s.address}</div> : null}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
       {Array.from({ length: trip.days }, (_, i) => i).map((dayIndex) => {
         const date = dateForDay(trip.startDate, dayIndex)
-        const items = trip.itinerary?.[dayIndex] || []
+        const items = (trip.itinerary?.[dayIndex] || []).slice().sort((a, b) =>
+          (a.time || '99:99').localeCompare(b.time || '99:99'),
+        )
         return (
           <div className="pdf-day" key={dayIndex}>
             <h3>
@@ -66,19 +46,26 @@ export default function PdfView({ trip }) {
                 <tbody>
                   {items.map((a) => (
                     <tr key={a.id}>
-                      <td className="pdf-time">{a.time || ''}</td>
+                      <td className="pdf-time">
+                        {a.time || ''}
+                        {a.endTime ? `–${a.endTime}` : ''}
+                      </td>
                       <td className="pdf-icon">{categoryIcon(a.category)}</td>
                       <td>
                         <strong>{a.title}</strong>
                         {a.note ? ` — ${a.note}` : ''}
                         {a.ticketNo ? ` · 🎫 ${a.ticketNo}` : ''}
-                        {a.price ? ` · ${a.price} ${a.currency}` : ''}
+                        {(a.estCost || a.price) ? ` · ${a.estCost || a.price} ${a.currency}` : ''}
                         {a.address ? (
                           <div className="pdf-addr">📍 {a.address}</div>
                         ) : null}
-                        {a.qrNote ? (
-                          <div className="pdf-addr">📎 {a.qrNote}</div>
-                        ) : null}
+                        {(a.custom || []).map((r, i) =>
+                          r.key || r.value ? (
+                            <div className="pdf-addr" key={i}>
+                              {r.key}: {r.value}
+                            </div>
+                          ) : null,
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -92,9 +79,20 @@ export default function PdfView({ trip }) {
       {budget.hasCost && (
         <div className="pdf-day">
           <h3>💰 {t('budget.title')}</h3>
-          {Object.entries(budget.totalByCurrency).map(([code, val]) => (
+          <div className="pdf-addr">
+            {t('budget.totalEstMYR')}: RM {Math.round(budget.estMYR).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+          </div>
+          <div className="pdf-addr">
+            {t('budget.totalActMYR')}: RM {Math.round(budget.actMYR).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+          </div>
+          {Object.entries(budget.estByCurrency).map(([code, val]) => (
             <div key={code} className="pdf-addr">
-              {code}: {val.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+              {t('budget.estimated')} {code}: {val.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+            </div>
+          ))}
+          {Object.entries(budget.actByCurrency).map(([code, val]) => (
+            <div key={code} className="pdf-addr">
+              {t('budget.actual')} {code}: {val.toLocaleString(undefined, { maximumFractionDigits: 2 })}
             </div>
           ))}
         </div>
