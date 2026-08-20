@@ -535,6 +535,30 @@ function ActivityForm({
         />
       </div>
 
+      <button type="button" className="adv-toggle" onClick={() => setShowBudget(!showBudget)} aria-expanded={showBudget}>
+        {showBudget ? '▾' : '▸'} {t('activity.budget')} <span className="opt-tag">{t('activity.optional')}</span>
+      </button>
+
+      {showBudget && (
+        <div className="adv-fields">
+          <div className="af-row">
+            <label className="af-cost">
+              <span>{t('budget.estimated')}</span>
+              <input type="number" min="0" step="0.01" value={draft.estCost} onChange={(e) => set({ estCost: e.target.value })} />
+            </label>
+            <label className="af-cost">
+              <span>{t('budget.actual')}</span>
+              <input type="number" min="0" step="0.01" value={draft.actCost} onChange={(e) => set({ actCost: e.target.value })} />
+            </label>
+            <select value={draft.currency} onChange={(e) => set({ currency: e.target.value })}>
+              {CURRENCIES.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      )}
+
       <button type="button" className="adv-toggle" onClick={() => setShowAdvanced(!showAdvanced)} aria-expanded={showAdvanced}>
         {showAdvanced ? '▾' : '▸'} {t('activity.advanced')}
       </button>
@@ -562,30 +586,6 @@ function ActivityForm({
             <button type="button" className="custom-add" onClick={() => addCustom(setDraft)}>
               + {t('activity.addRow')}
             </button>
-          </div>
-        </div>
-      )}
-
-      <button type="button" className="adv-toggle" onClick={() => setShowBudget(!showBudget)} aria-expanded={showBudget}>
-        {showBudget ? '▾' : '▸'} {t('activity.budget')}
-      </button>
-
-      {showBudget && (
-        <div className="adv-fields">
-          <div className="af-row">
-            <label className="af-cost">
-              <span>{t('budget.estimated')}</span>
-              <input type="number" min="0" step="0.01" value={draft.estCost} onChange={(e) => set({ estCost: e.target.value })} />
-            </label>
-            <label className="af-cost">
-              <span>{t('budget.actual')}</span>
-              <input type="number" min="0" step="0.01" value={draft.actCost} onChange={(e) => set({ actCost: e.target.value })} />
-            </label>
-            <select value={draft.currency} onChange={(e) => set({ currency: e.target.value })}>
-              {CURRENCIES.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
           </div>
         </div>
       )}

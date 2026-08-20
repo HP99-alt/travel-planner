@@ -62,7 +62,7 @@ export const translations = {
     'activity.time': 'Time',
     'activity.title': 'Activity',
     'activity.titlePlaceholder': 'e.g. Visit Senso-ji Temple',
-    'activity.note': 'Note',
+    'activity.note': 'Details',
     'activity.notePlaceholder': 'Optional details...',
     'activity.add': 'Add',
     'activity.save': 'Save',
@@ -88,7 +88,7 @@ export const translations = {
     'cat.stay': 'Stay',
     'cat.other': 'Other',
     'activity.category': 'Type',
-    'activity.address': 'Address',
+    'activity.address': 'Location',
     'activity.addressPlaceholder': 'e.g. 1-1 Asakusa, Taito City, Tokyo',
     'activity.geocode': 'Locate on map',
     'activity.geocoding': 'Locating…',
@@ -103,6 +103,7 @@ export const translations = {
     'activity.qrNote': 'QR / Attachment note',
     'activity.qrNotePlaceholder': 'e.g. screenshot saved in Photos, barcode at gate',
     'activity.overlap': 'This activity overlaps with another activity.',
+    'activity.optional': 'optional',
 
     // Flights
     'flight.title': 'Flights',
@@ -292,7 +293,7 @@ export const translations = {
     'activity.time': '时间',
     'activity.title': '活动',
     'activity.titlePlaceholder': '例如：参观浅草寺',
-    'activity.note': '备注',
+    'activity.note': '细节',
     'activity.notePlaceholder': '可选，填写细节……',
     'activity.add': '添加',
     'activity.save': '保存',
@@ -309,6 +310,7 @@ export const translations = {
     'activity.fieldName': '字段名',
     'activity.fieldValue': '值',
     'activity.overlap': '此行程与另一个行程时间重叠。',
+    'activity.optional': '可选',
 
     // Activity categories
     'cat.activity': '活动',
@@ -319,7 +321,7 @@ export const translations = {
     'cat.stay': '住宿',
     'cat.other': '其他',
     'activity.category': '类型',
-    'activity.address': '地址',
+    'activity.address': '地点',
     'activity.addressPlaceholder': '例如：东京都台东区浅草1-1',
     'activity.geocode': '地图定位',
     'activity.geocoding': '定位中…',
