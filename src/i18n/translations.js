@@ -102,6 +102,7 @@ export const translations = {
     'activity.currency': 'Currency',
     'activity.qrNote': 'QR / Attachment note',
     'activity.qrNotePlaceholder': 'e.g. screenshot saved in Photos, barcode at gate',
+    'activity.overlap': 'This activity overlaps with another activity.',
 
     // Flights
     'flight.title': 'Flights',
@@ -307,6 +308,7 @@ export const translations = {
     'activity.addRow': '添加一行',
     'activity.fieldName': '字段名',
     'activity.fieldValue': '值',
+    'activity.overlap': '此行程与另一个行程时间重叠。',
 
     // Activity categories
     'cat.activity': '活动',

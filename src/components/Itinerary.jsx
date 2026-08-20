@@ -61,6 +61,42 @@ function sortByTime(list) {
   })
 }
 
+// Convert "HH:MM" to minutes since midnight; null if missing/invalid.
+function toMinutes(t) {
+  if (!t || typeof t !== 'string' || !t.includes(':')) return null
+  const [h, m] = t.split(':').map(Number)
+  if (Number.isNaN(h) || Number.isNaN(m)) return null
+  return h * 60 + m
+}
+
+// Two time intervals [s1, e1) and [s2, e2) overlap when both have a defined
+// end and the start of one is strictly before the end of the other (and vice
+// versa). Point-in-time items (no endTime) never overlap — e.g. a "Hotel
+// Check-in" at 15:00 should not clash with a 14:00–16:00 activity.
+function intervalsOverlap(a, b) {
+  const as = toMinutes(a.time)
+  const ae = toMinutes(a.endTime)
+  const bs = toMinutes(b.time)
+  const be = toMinutes(b.endTime)
+  if (as == null || ae == null || bs == null || be == null) return false
+  return as < be && bs < ae
+}
+
+// Returns a Set of item ids on a given day that overlap with at least one
+// other item on that same day. Does not block editing — only warns gently.
+function findOverlaps(list) {
+  const ids = new Set()
+  for (let i = 0; i < list.length; i++) {
+    for (let j = i + 1; j < list.length; j++) {
+      if (intervalsOverlap(list[i], list[j])) {
+        ids.add(list[i].id)
+        ids.add(list[j].id)
+      }
+    }
+  }
+  return ids
+}
+
 function formatTime12(time, lang) {
   if (!time) return ''
   const [hStr, mStr] = time.split(':')
@@ -126,7 +162,10 @@ export default function Itinerary({ trip, onUpdate }) {
   const itinerary = trip.itinerary || {}
 
   function activitiesForDay(dayIndex) {
-    return sortByTime(itinerary[dayIndex] || [])
+    const sorted = sortByTime(itinerary[dayIndex] || [])
+    const overlapIds = findOverlaps(sorted)
+    // Flag overlapping items (passive warning only — never blocks the user).
+    return sorted.map((a) => ({ ...a, overlap: overlapIds.has(a.id) }))
   }
 
   function updateDay(dayIndex, list) {
@@ -361,6 +400,11 @@ export default function Itinerary({ trip, onUpdate }) {
                                   </span>
                                 </div>
                               ))}
+                            </div>
+                          )}
+                          {a.overlap && (
+                            <div className="tl-overlap" role="status">
+                              ⚠️ {t('activity.overlap')}
                             </div>
                           )}
                           <div className="tl-actions">

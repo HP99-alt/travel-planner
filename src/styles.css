@@ -724,6 +724,24 @@ body {
   flex-wrap: wrap;
 }
 
+/* Gentle overlap reminder — informative only, never blocks the user. */
+.tl-overlap {
+  margin-top: 6px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: #8a5a00;
+  background: rgba(255, 179, 0, 0.12);
+  border: 1px solid rgba(255, 179, 0, 0.35);
+}
+:root[data-theme='dark'] .tl-overlap,
+.app.dark .tl-overlap {
+  color: #ffd27a;
+  background: rgba(255, 179, 0, 0.14);
+  border-color: rgba(255, 179, 0, 0.3);
+}
+
 /* Edit mode reused inside a timeline item */
 .tl-item.edit-mode {
   cursor: default;
