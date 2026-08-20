@@ -1105,6 +1105,13 @@ body {
   gap: 6px;
 }
 
+.adv-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
 .custom-row {
   display: flex;
   gap: 6px;

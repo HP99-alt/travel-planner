@@ -602,9 +602,7 @@ function ActivityForm({
               </button>
             ))}
           </div>
-          <div className="af-row">
-            <input type="text" placeholder={t('activity.ticketNoPlaceholder')} value={draft.ticketNo} onChange={(e) => set({ ticketNo: e.target.value })} />
-          </div>
+          <p className="adv-hint">{t('activity.customHint')}</p>
           <div className="custom-rows">
             {custom.map((row, i) => (
               <div className="custom-row" key={i}>

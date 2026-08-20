@@ -78,6 +78,7 @@ export const translations = {
     'activity.addRow': 'Add Row',
     'activity.fieldName': 'Field name',
     'activity.fieldValue': 'Value',
+    'activity.customHint': 'Add any details you need — field names and values are up to you.',
 
     // Activity categories
     'cat.activity': 'Activity',
@@ -310,6 +311,7 @@ export const translations = {
     'activity.addRow': '添加一行',
     'activity.fieldName': '字段名',
     'activity.fieldValue': '值',
+    'activity.customHint': '自由添加任何资料 —— 字段名和值都由你自己决定。',
     'activity.overlap': '此行程与另一个行程时间重叠。',
     'activity.optional': '可选',
     'activity.lightboxHint': '点击任意处关闭',
