@@ -29,9 +29,15 @@ export function LanguageProvider({ children }) {
   }, [])
 
   const t = useCallback(
-    (key) => {
+    (key, params) => {
       const dict = translations[lang] || translations.en
-      return dict[key] ?? key
+      let str = dict[key] ?? key
+      if (params) {
+        for (const [k, v] of Object.entries(params)) {
+          str = str.replace(new RegExp(`\\{${k}\\}`, 'g'), v)
+        }
+      }
+      return str
     },
     [lang],
   )

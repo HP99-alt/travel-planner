@@ -11,6 +11,10 @@ export const translations = {
     'lang.label': 'Language',
     'lang.en': 'English',
     'lang.zh': '中文',
+    'theme.toggle': 'Toggle theme',
+    'theme.auto': 'Auto',
+    'theme.light': 'Light',
+    'theme.dark': 'Dark',
 
     // Sidebar / trip list
     'trips.title': 'My Trips',
@@ -32,6 +36,18 @@ export const translations = {
     'form.save': 'Save',
     'form.editTrip': 'Edit Trip',
     'form.creating': 'Creating',
+
+    // Smart input
+    'form.endDate': 'End Date',
+    'form.daysAuto': 'Days (auto)',
+    'form.paste': 'Paste Itinerary',
+    'form.pastePlaceholder':
+      'e.g. Aug 20 10:00 Senso-ji, 14:00 Ginza  ·  one line per activity',
+    'form.parse': 'Parse & Fill',
+    'form.template': 'Quick Templates',
+    'form.tplTokyo': 'Tokyo 5-Day',
+    'form.tplWeekend': 'Weekend 2-Day',
+    'form.parsed': 'Parsed {n} activities',
 
     // Itinerary / days
     'itinerary.title': 'Itinerary',
@@ -156,6 +172,10 @@ export const translations = {
     'lang.label': '语言',
     'lang.en': 'English',
     'lang.zh': '中文',
+    'theme.toggle': '切换主题',
+    'theme.auto': '跟随系统',
+    'theme.light': '浅色',
+    'theme.dark': '深色',
 
     'trips.title': '我的旅程',
     'trips.new': '新建旅程',
@@ -175,6 +195,17 @@ export const translations = {
     'form.save': '保存',
     'form.editTrip': '编辑旅程',
     'form.creating': '创建中',
+
+    // Smart input
+    'form.daysAuto': '天数（自动）',
+    'form.paste': '粘贴行程',
+    'form.pastePlaceholder':
+      '例如：8月20日 10:00 浅草寺，14:00 银座  ·  每行一个活动',
+    'form.parse': '解析并填入',
+    'form.template': '快捷模板',
+    'form.tplTokyo': '东京5日游',
+    'form.tplWeekend': '周末2日游',
+    'form.parsed': '已解析 {n} 个活动',
 
     'itinerary.title': '行程安排',
     'itinerary.day': '第',

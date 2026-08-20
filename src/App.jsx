@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useI18n } from './i18n/LanguageContext.jsx'
+import { useTheme } from './i18n/ThemeContext.jsx'
 import { loadTrips, saveTrips } from './storage.js'
 import { readTripsFromHash, clearHash } from './share.js'
 import { createId } from './storage.js'
@@ -16,6 +17,7 @@ import Sheet from './components/Sheet.jsx'
 
 export default function App() {
   const { t, lang, changeLang } = useI18n()
+  const { theme, toggle, effectiveTheme } = useTheme()
   const [trips, setTrips] = useState([])
   const [activeId, setActiveId] = useState(null)
   const [showForm, setShowForm] = useState(false)
@@ -103,19 +105,29 @@ export default function App() {
             <p className="brand-sub">{t('app.subtitle')}</p>
           </div>
         </div>
-        <div className="lang-toggle" role="group" aria-label={t('lang.label')}>
+        <div className="topbar-actions">
           <button
-            className={lang === 'en' ? 'active' : ''}
-            onClick={() => changeLang('en')}
+            className="icon-btn"
+            onClick={toggle}
+            aria-label={t('theme.toggle')}
+            title={theme === 'auto' ? t('theme.auto') : effectiveTheme === 'dark' ? t('theme.dark') : t('theme.light')}
           >
-            {t('lang.en')}
+            {theme === 'auto' ? '🌀' : effectiveTheme === 'dark' ? '🌙' : '☀️'}
           </button>
-          <button
-            className={lang === 'zh' ? 'active' : ''}
-            onClick={() => changeLang('zh')}
-          >
-            {t('lang.zh')}
-          </button>
+          <div className="lang-toggle" role="group" aria-label={t('lang.label')}>
+            <button
+              className={lang === 'en' ? 'active' : ''}
+              onClick={() => changeLang('en')}
+            >
+              {t('lang.en')}
+            </button>
+            <button
+              className={lang === 'zh' ? 'active' : ''}
+              onClick={() => changeLang('zh')}
+            >
+              {t('lang.zh')}
+            </button>
+          </div>
         </div>
       </header>
 
