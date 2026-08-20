@@ -4,6 +4,7 @@ import { createId } from '../storage.js'
 import { CURRENCIES } from '../budget.js'
 import CopyButton from './CopyButton.jsx'
 import Sheet from './Sheet.jsx'
+import MapOpenButton from './MapOpenButton.jsx'
 
 const HOTEL_SAMPLE = {
   name: 'Shinjuku Granbell Hotel',
@@ -37,7 +38,7 @@ export default function LodgingPanel({ trip, onUpdate }) {
       ref: '',
       address: '',
       price: '',
-      currency: 'CNY',
+      currency: 'MYR',
       note: '',
     }
   }
@@ -102,6 +103,7 @@ export default function LodgingPanel({ trip, onUpdate }) {
               <div className="wallet-addr">
                 <span className="wallet-addr-text">📍 {s.address}</span>
                 <CopyButton value={s.address} />
+                <MapOpenButton address={s.address} />
               </div>
             )}
             {s.ref && (

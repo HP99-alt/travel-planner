@@ -3,8 +3,33 @@ import { useI18n } from '../i18n/LanguageContext.jsx'
 import { createId } from '../storage.js'
 
 const MONTHS_EN = {
-  jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
-  jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11,
+  jan: 0, feb: 1, mar: 2, apr: 3, mac: 3, may: 4, Mei: 4, mei: 4, jun: 5,
+  Jul: 6, jul: 6, ogos: 7, ogo: 7, Aug: 7, aug: 7, sep: 8, Sep: 8,
+  okt: 9, Okt: 9, oct: 9, nov: 10, Nov: 10, dis: 11, Dis: 11, dec: 11,
+}
+
+// Detect a currency symbol/prefix in free text and return { currency, amount, clean }.
+function detectCurrency(text) {
+  const map = [
+    { re: /RM\s?(\d+(?:[.,]\d+)?)/i, code: 'MYR' },
+    { re: /¥\s?(\d+(?:[.,]\d+)?)/, code: 'CNY' },
+    { re: /\$\s?(\d+(?:[.,]\d+)?)/, code: 'USD' },
+    { re: /€\s?(\d+(?:[.,]\d+)?)/, code: 'EUR' },
+    { re: /£\s?(\d+(?:[.,]\d+)?)/, code: 'GBP' },
+    { re: /₩\s?(\d+(?:[.,]\d+)?)/, code: 'KRW' },
+    { re: /￥\s?(\d+(?:[.,]\d+)?)/, code: 'JPY' },
+  ]
+  for (const m of map) {
+    const mm = text.match(m.re)
+    if (mm) {
+      return {
+        currency: m.code,
+        amount: Number(mm[1].replace(',', '.')),
+        clean: text.replace(m.re, ''),
+      }
+    }
+  }
+  return { currency: null, amount: null, clean: text }
 }
 
 function diffDays(a, b) {
@@ -70,8 +95,9 @@ function parseLine(line, startDate) {
     }
   }
 
-  // Title = text with time and date tokens removed.
-  let title = text
+  // Title = text with time, date and currency tokens removed.
+  const cur = detectCurrency(text)
+  let title = cur.clean
     .replace(/(\d{1,2})[:：](\d{2})/g, '')
     .replace(/(\d{1,2})\s*月\s*\d{1,2}\s*日?/g, '')
     .replace(/\b([A-Za-z]{3,9})[.]?\s*\d{1,2}\b/g, '')
@@ -81,7 +107,7 @@ function parseLine(line, startDate) {
     .replace(/\s+/g, ' ')
     .trim()
 
-  return { dayOffset, time, title }
+  return { dayOffset, time, title, currency: cur.currency, price: cur.amount }
 }
 
 function parseItinerary(text, startDate) {
@@ -101,8 +127,8 @@ function parseItinerary(text, startDate) {
       category: 'other',
       address: '',
       ticketNo: '',
-      price: '',
-      currency: 'CNY',
+      price: parsed.price ?? '',
+      currency: parsed.currency || 'MYR',
       qrNote: '',
     }
     result[offset] = result[offset] || []

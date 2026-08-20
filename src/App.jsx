@@ -13,6 +13,7 @@ import PackingList from './components/PackingList.jsx'
 import LodgingPanel from './components/LodgingPanel.jsx'
 import BudgetPanel from './components/BudgetPanel.jsx'
 import FlightsPanel from './components/FlightsPanel.jsx'
+import EmergencyPanel from './components/EmergencyPanel.jsx'
 import Sheet from './components/Sheet.jsx'
 
 export default function App() {
@@ -169,6 +170,7 @@ export default function App() {
                   <FlightsPanel trip={viewTrip} onUpdate={handleUpdate} />
                   <LodgingPanel trip={viewTrip} onUpdate={handleUpdate} />
                   <BudgetPanel trip={viewTrip} />
+                  <EmergencyPanel trip={viewTrip} onUpdate={handleUpdate} />
                 </aside>
               </div>
             </>

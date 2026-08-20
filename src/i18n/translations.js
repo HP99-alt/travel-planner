@@ -131,10 +131,28 @@ export const translations = {
     'budget.title': 'Budget',
     'budget.total': 'Total',
     'budget.perDay': 'Per day (avg)',
+    'budget.totalMYR': 'Total (MYR)',
+    'budget.perDayMYR': 'Per day (MYR)',
+    'budget.rateNote': 'Rates are static reference values, not live.',
     'budget.byCurrency': 'By currency',
     'budget.noCost': 'No costs recorded yet.',
     'budget.activityCost': 'Est. cost',
     'budget.lodgingCost': 'Lodging cost',
+
+    // Emergency board
+    'emergency.title': 'Emergency',
+    'emergency.hint': 'Saved on this trip — available offline. Tap to fill.',
+    'emergency.passport': 'Passport No.',
+    'emergency.visa': 'Visa',
+    'emergency.insurance': 'Insurance No.',
+    'emergency.contactName': 'Emergency Contact',
+    'emergency.contactPhone': 'Contact Phone',
+    'emergency.localEmergency': 'Local Emergency',
+    'emergency.embassy': 'Embassy / Consulate',
+    'emergency.tapToFill': 'Tap to fill',
+
+    // Map
+    'map.open': 'Open in Maps',
 
     // Packing checklist
     'pack.title': 'Packing List',
@@ -287,21 +305,29 @@ export const translations = {
     'budget.title': '预算',
     'budget.total': '合计',
     'budget.perDay': '日均',
+    'budget.totalMYR': '合计（MYR）',
+    'budget.perDayMYR': '日均（MYR）',
+    'budget.rateNote': '汇率为静态参考值，非实时。',
     'budget.byCurrency': '按币种',
     'budget.noCost': '还没有记录费用。',
     'budget.activityCost': '预计开支',
     'budget.lodgingCost': '住宿费用',
 
-    // Packing checklist
-    'pack.title': '打包清单',
-    'pack.add': '添加物品',
-    'pack.placeholder': '例如：护照',
-    'pack.empty': '清单为空，添加要带的东西吧。',
-    'pack.addDefault': '添加常用物品',
-    'pack.clear': '清除已勾选',
+    // Emergency board
+    'emergency.title': '紧急看板',
+    'emergency.hint': '保存在本行程内，断网也可查看。点击填写。',
+    'emergency.passport': '护照号',
+    'emergency.visa': '签证',
+    'emergency.insurance': '保险单号',
+    'emergency.contactName': '紧急联系人',
+    'emergency.contactPhone': '联系人电话',
+    'emergency.localEmergency': '当地报警',
+    'emergency.embassy': '大使馆 / 领事馆',
+    'emergency.tapToFill': '点击填写',
 
     // Map
     'map.title': '地图',
+    'map.open': '在地图打开',
     'map.allPins': '全部活动地点',
     'map.noPins': '暂无标记地点。给活动添加地址即可显示。',
 

@@ -5,6 +5,8 @@ export default function BudgetPanel({ trip }) {
   const { t } = useI18n()
   const b = computeBudget(trip)
 
+  const fmt = (n) => n.toLocaleString(undefined, { maximumFractionDigits: 2 })
+
   return (
     <div className="panel budget-panel">
       <div className="panel-head">
@@ -17,14 +19,11 @@ export default function BudgetPanel({ trip }) {
         <>
           <div className="budget-totals">
             <div className="budget-big">
-              <span className="budget-label">{t('budget.total')}</span>
-              <span className="budget-value">
-                {b.grandTotal.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-              </span>
+              <span className="budget-label">{t('budget.totalMYR')}</span>
+              <span className="budget-value">RM {fmt(b.totalMYR)}</span>
             </div>
             <div className="budget-sub">
-              {t('budget.perDay')}:{' '}
-              {b.perDay.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+              {t('budget.perDayMYR')}: RM {fmt(b.perDayMYR)}
             </div>
           </div>
 
@@ -33,11 +32,11 @@ export default function BudgetPanel({ trip }) {
             {Object.entries(b.totalByCurrency).map(([code, val]) => (
               <div className="budget-row" key={code}>
                 <span>{code}</span>
-                <span>{val.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                <span>{fmt(val)}</span>
               </div>
             ))}
           </div>
-          <p className="budget-note">* {t('budget.byCurrency')} — {t('budget.total')} = Σ</p>
+          <p className="budget-note">* {t('budget.rateNote')}</p>
         </>
       )}
     </div>

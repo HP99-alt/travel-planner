@@ -5,6 +5,7 @@ import { CATEGORIES, categoryIcon } from '../categories.js'
 import { CURRENCIES } from '../budget.js'
 import MapPanel from './MapPanel.jsx'
 import CopyButton from './CopyButton.jsx'
+import MapOpenButton from './MapOpenButton.jsx'
 
 // Compute the calendar date for a given day index from the trip start date.
 function dateForDay(startDate, dayIndex) {
@@ -41,7 +42,7 @@ export default function Itinerary({ trip, onUpdate }) {
     address: '',
     ticketNo: '',
     price: '',
-    currency: 'CNY',
+    currency: 'MYR',
     qrNote: '',
   })
   const [dragIndex, setDragIndex] = useState(null)
@@ -69,7 +70,7 @@ export default function Itinerary({ trip, onUpdate }) {
       address: '',
       ticketNo: '',
       price: '',
-      currency: 'CNY',
+      currency: 'MYR',
       qrNote: '',
     })
   }
@@ -211,6 +212,7 @@ export default function Itinerary({ trip, onUpdate }) {
                         {(a.address || a.lat != null) && (
                           <span className="activity-addr">
                             📍 {a.address || `${a.lat?.toFixed(4)}, ${a.lng?.toFixed(4)}`}
+                            {a.address && <MapOpenButton address={a.address} />}
                           </span>
                         )}
                         <div className="activity-ticket">
@@ -244,7 +246,7 @@ export default function Itinerary({ trip, onUpdate }) {
                             />
                             <select
                               className="cur-select"
-                              value={a.currency || 'CNY'}
+                              value={a.currency || 'MYR'}
                               onChange={(e) =>
                                 setActivityField(dayIndex, a.id, {
                                   currency: e.target.value,
