@@ -6,6 +6,7 @@ import { readTripsFromHash, clearHash } from './share.js'
 import { createId } from './storage.js'
 import TripList from './components/TripList.jsx'
 import TripForm from './components/TripForm.jsx'
+import ImportExcelButton from './components/ImportExcelButton.jsx'
 import Itinerary from './components/Itinerary.jsx'
 import ExportPanel from './components/ExportPanel.jsx'
 import PdfView from './components/PdfView.jsx'
@@ -50,6 +51,12 @@ export default function App() {
     setTrips((prev) => [...prev, trip])
     setActiveId(trip.id)
     setShowForm(false)
+  }
+
+  function handleImport(trip) {
+    setTrips((prev) => [...prev, trip])
+    setActiveId(trip.id)
+    setSharedTrips(null)
   }
 
   function handleUpdate(updated) {
@@ -152,6 +159,7 @@ export default function App() {
                 setEditing(null)
                 setShowForm(true)
               }}
+              onImport={handleImport}
               onDelete={handleDelete}
             />
             {viewTrip && <PackingList trip={viewTrip} onUpdate={handleUpdate} />}

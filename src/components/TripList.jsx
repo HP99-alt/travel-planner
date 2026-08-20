@@ -1,15 +1,19 @@
 import { useI18n } from '../i18n/LanguageContext.jsx'
+import ImportExcelButton from './ImportExcelButton.jsx'
 
-export default function TripList({ trips, activeId, onSelect, onNew, onDelete }) {
+export default function TripList({ trips, activeId, onSelect, onNew, onImport, onDelete }) {
   const { t } = useI18n()
 
   return (
     <aside className="sidebar">
       <div className="sidebar-head">
         <h2>{t('trips.title')}</h2>
-        <button className="btn primary small" onClick={onNew}>
-          + {t('trips.new')}
-        </button>
+        <div className="sidebar-actions">
+          <ImportExcelButton onImport={onImport} />
+          <button className="btn primary small" onClick={onNew}>
+            + {t('trips.new')}
+          </button>
+        </div>
       </div>
 
       {trips.length === 0 ? (
