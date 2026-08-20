@@ -22,7 +22,12 @@ export default function ImportExcelButton({ onImport, defaultCurrency = 'MYR' })
   const [rows, setRows] = useState([])
   const [mapping, setMapping] = useState({})
   const [activities, setActivities] = useState([])
-  const [startDate, setStartDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [startDate, setStartDate] = useState(() => {
+    const d = new Date()
+    const mm = String(d.getMonth() + 1).padStart(2, '0')
+    const dd = String(d.getDate()).padStart(2, '0')
+    return `${d.getFullYear()}-${mm}-${dd}`
+  })
   const [tripName, setTripName] = useState('')
   const [destination, setDestination] = useState('')
   const [error, setError] = useState('')
@@ -164,7 +169,9 @@ export default function ImportExcelButton({ onImport, defaultCurrency = 'MYR' })
   function addDays(iso, n) {
     const d = new Date(iso + 'T00:00:00')
     d.setDate(d.getDate() + n)
-    return d.toISOString().slice(0, 10)
+    const mm = String(d.getMonth() + 1).padStart(2, '0')
+    const dd = String(d.getDate()).padStart(2, '0')
+    return `${d.getFullYear()}-${mm}-${dd}`
   }
 
   const hasData = headers.length > 0 && rows.length > 0

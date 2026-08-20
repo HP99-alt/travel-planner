@@ -67,6 +67,9 @@ export const translations = {
     'activity.add': 'Add',
     'activity.save': 'Save',
     'activity.delete': 'Remove',
+    'activity.edit': 'Edit',
+    'activity.duplicate': 'Duplicate',
+    'activity.advanced': 'Advanced Details',
     'activity.empty': 'Add your first activity for this day.',
 
     // Activity categories
@@ -269,6 +272,9 @@ export const translations = {
     'activity.add': '添加',
     'activity.save': '保存',
     'activity.delete': '移除',
+    'activity.edit': '编辑',
+    'activity.duplicate': '复制',
+    'activity.advanced': '高级信息',
     'activity.empty': '为这一天添加第一个活动吧。',
 
     // Activity categories

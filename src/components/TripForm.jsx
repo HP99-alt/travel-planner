@@ -40,13 +40,18 @@ function diffDays(a, b) {
 }
 
 function todayISO() {
-  return new Date().toISOString().slice(0, 10)
+  const d = new Date()
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${d.getFullYear()}-${mm}-${dd}`
 }
 
 function addDays(iso, n) {
   const d = new Date(iso + 'T00:00:00')
   d.setDate(d.getDate() + n)
-  return d.toISOString().slice(0, 10)
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${d.getFullYear()}-${mm}-${dd}`
 }
 
 // Parse a line like "Aug 20 10:00 Senso-ji" or "8月20日 10:00 浅草寺"
