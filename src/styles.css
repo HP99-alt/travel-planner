@@ -624,9 +624,39 @@ body {
   transition: transform 0.14s ease, box-shadow 0.14s ease;
 }
 
+.activity.edit-mode {
+  cursor: default;
+  display: block;
+}
+
 .activity:active {
   cursor: grabbing;
   transform: scale(0.99);
+}
+
+/* Clickable area that triggers inline editing (icon + time + title + addr). */
+.activity-main-btn {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+.activity-main-btn:hover .activity-title {
+  text-decoration: underline;
+  text-decoration-color: var(--border);
+}
+
+.edit-pen {
+  flex: none;
 }
 
 .drag-handle {

@@ -31,10 +31,8 @@ async function geocode(address) {
   return null
 }
 
-export default function Itinerary({ trip, onUpdate }) {
-  const { t } = useI18n()
-  const [addingForDay, setAddingForDay] = useState(null)
-  const [draft, setDraft] = useState({
+function emptyDraft() {
+  return {
     time: '09:00',
     title: '',
     note: '',
@@ -44,15 +42,22 @@ export default function Itinerary({ trip, onUpdate }) {
     price: '',
     currency: 'MYR',
     qrNote: '',
-  })
+  }
+}
+
+export default function Itinerary({ trip, onUpdate }) {
+  const { t } = useI18n()
+  const [addingForDay, setAddingForDay] = useState(null)
+  const [draft, setDraft] = useState(emptyDraft())
   const [dragIndex, setDragIndex] = useState(null)
   const [geoState, setGeoState] = useState({}) // per activity id: 'ing' | 'fail'
+  const [editingId, setEditingId] = useState(null)
+  const [editDraft, setEditDraft] = useState(null)
 
   const dayIndices = Array.from({ length: trip.days }, (_, i) => i)
   const itinerary = trip.itinerary || {}
 
   function activitiesForDay(dayIndex) {
-    // Preserve explicit order; fall back to time sort only if no manual order.
     return [...(itinerary[dayIndex] || [])]
   }
 
@@ -62,21 +67,13 @@ export default function Itinerary({ trip, onUpdate }) {
 
   function startAdd(dayIndex) {
     setAddingForDay(dayIndex)
-    setDraft({
-      time: '09:00',
-      title: '',
-      note: '',
-      category: 'other',
-      address: '',
-      ticketNo: '',
-      price: '',
-      currency: 'MYR',
-      qrNote: '',
-    })
+    setEditingId(null)
+    setDraft(emptyDraft())
   }
 
   function fillSampleTicket(dayIndex) {
     setAddingForDay(dayIndex)
+    setEditingId(null)
     setDraft({
       time: '14:00',
       title: 'teamLab Planets Tokyo',
@@ -138,6 +135,39 @@ export default function Itinerary({ trip, onUpdate }) {
     )
   }
 
+  function startEdit(dayIndex, activity) {
+    setEditingId(activity.id)
+    setAddingForDay(null)
+    setEditDraft({
+      time: activity.time || '',
+      title: activity.title || '',
+      note: activity.note || '',
+      category: activity.category || 'other',
+      address: activity.address || '',
+      ticketNo: activity.ticketNo || '',
+      price: activity.price ?? '',
+      currency: activity.currency || 'MYR',
+      qrNote: activity.qrNote || '',
+    })
+  }
+
+  function commitEdit(dayIndex, activityId) {
+    if (!editDraft.title.trim()) return
+    setActivityField(dayIndex, activityId, {
+      time: editDraft.time,
+      title: editDraft.title.trim(),
+      note: editDraft.note.trim(),
+      category: editDraft.category,
+      address: editDraft.address.trim(),
+      ticketNo: editDraft.ticketNo.trim(),
+      price: editDraft.price === '' ? '' : Number(editDraft.price),
+      currency: editDraft.currency,
+      qrNote: editDraft.qrNote.trim(),
+    })
+    setEditingId(null)
+    setEditDraft(null)
+  }
+
   async function locate(dayIndex, activity) {
     if (!activity.address?.trim()) return
     setGeoState((s) => ({ ...s, [activity.id]: 'ing' }))
@@ -190,122 +220,179 @@ export default function Itinerary({ trip, onUpdate }) {
                 </div>
 
                 <ul className="activity-list" onDragOver={(e) => e.preventDefault()}>
-                  {items.length === 0 && addingForDay !== dayIndex && (
+                  {items.length === 0 && addingForDay !== dayIndex && editingId == null && (
                     <li className="activity-empty">{t('itinerary.emptyDay')}</li>
                   )}
-                  {items.map((a, idx) => (
-                    <li
-                      className="activity"
-                      key={a.id}
-                      draggable
-                      onDragStart={() => setDragIndex(idx)}
-                      onDragEnd={() => setDragIndex(null)}
-                      onDragOver={(e) => e.preventDefault()}
-                      onDrop={() => onDrop(dayIndex, idx)}
-                    >
-                      <span className="drag-handle" title="drag">⠿</span>
-                      <span className="activity-icon">{categoryIcon(a.category)}</span>
-                      <span className="activity-time">{a.time || '--:--'}</span>
-                      <div className="activity-body">
-                        <span className="activity-title">{a.title}</span>
-                        {a.note && <span className="activity-note">{a.note}</span>}
-                        {(a.address || a.lat != null) && (
-                          <span className="activity-addr">
-                            📍 {a.address || `${a.lat?.toFixed(4)}, ${a.lng?.toFixed(4)}`}
-                            {a.address && <MapOpenButton address={a.address} />}
-                          </span>
-                        )}
-                        <div className="activity-ticket">
-                          <div className="field-with-copy">
+                  {items.map((a, idx) => {
+                    if (editingId === a.id && editDraft) {
+                      return (
+                        <li className="activity edit-mode" key={a.id}>
+                          <div className="activity-form">
+                            <div className="field-row">
+                              <input
+                                type="time"
+                                value={editDraft.time}
+                                onChange={(e) =>
+                                  setEditDraft({ ...editDraft, time: e.target.value })
+                                }
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') commitEdit(dayIndex, a.id)
+                                }}
+                              />
+                              <input
+                                type="text"
+                                className="activity-title-input"
+                                placeholder={t('activity.titlePlaceholder')}
+                                value={editDraft.title}
+                                autoFocus
+                                onChange={(e) =>
+                                  setEditDraft({ ...editDraft, title: e.target.value })
+                                }
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') commitEdit(dayIndex, a.id)
+                                }}
+                              />
+                            </div>
+                            <div className="cat-row">
+                              {CATEGORIES.map((c) => (
+                                <button
+                                  type="button"
+                                  key={c.key}
+                                  className={`cat-chip ${editDraft.category === c.key ? 'active' : ''}`}
+                                  onClick={() => setEditDraft({ ...editDraft, category: c.key })}
+                                  title={t(c.labelKey)}
+                                >
+                                  {c.icon}
+                                </button>
+                              ))}
+                            </div>
                             <input
                               type="text"
-                              className="ticket-input"
-                              placeholder={t('activity.ticketNoPlaceholder')}
-                              value={a.ticketNo || ''}
+                              placeholder={t('activity.notePlaceholder')}
+                              value={editDraft.note}
                               onChange={(e) =>
-                                setActivityField(dayIndex, a.id, {
-                                  ticketNo: e.target.value,
-                                })
+                                setEditDraft({ ...editDraft, note: e.target.value })
                               }
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') commitEdit(dayIndex, a.id)
+                              }}
                             />
-                            <CopyButton value={a.ticketNo} />
-                          </div>
-                          <div className="price-inline">
                             <input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              className="price-input"
-                              placeholder={t('activity.price')}
-                              value={a.price ?? ''}
+                              type="text"
+                              placeholder={t('activity.addressPlaceholder')}
+                              value={editDraft.address}
                               onChange={(e) =>
-                                setActivityField(dayIndex, a.id, {
-                                  price: e.target.value === '' ? '' : Number(e.target.value),
-                                })
+                                setEditDraft({ ...editDraft, address: e.target.value })
                               }
                             />
-                            <select
-                              className="cur-select"
-                              value={a.currency || 'MYR'}
+                            <div className="field-row">
+                              <input
+                                type="text"
+                                placeholder={t('activity.ticketNoPlaceholder')}
+                                value={editDraft.ticketNo}
+                                onChange={(e) =>
+                                  setEditDraft({ ...editDraft, ticketNo: e.target.value })
+                                }
+                              />
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                placeholder={t('activity.price')}
+                                value={editDraft.price}
+                                onChange={(e) =>
+                                  setEditDraft({ ...editDraft, price: e.target.value })
+                                }
+                              />
+                              <select
+                                value={editDraft.currency}
+                                onChange={(e) =>
+                                  setEditDraft({ ...editDraft, currency: e.target.value })
+                                }
+                              >
+                                {CURRENCIES.map((c) => (
+                                  <option key={c} value={c}>
+                                    {c}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            <input
+                              type="text"
+                              placeholder={t('activity.qrNotePlaceholder')}
+                              value={editDraft.qrNote}
                               onChange={(e) =>
-                                setActivityField(dayIndex, a.id, {
-                                  currency: e.target.value,
-                                })
+                                setEditDraft({ ...editDraft, qrNote: e.target.value })
                               }
-                            >
-                              {CURRENCIES.map((c) => (
-                                <option key={c} value={c}>
-                                  {c}
-                                </option>
-                              ))}
-                            </select>
+                            />
+                            <div className="form-actions">
+                              <button
+                                className="btn ghost small"
+                                onClick={() => {
+                                  setEditingId(null)
+                                  setEditDraft(null)
+                                }}
+                              >
+                                {t('form.cancel')}
+                              </button>
+                              <button
+                                className="btn primary small"
+                                onClick={() => commitEdit(dayIndex, a.id)}
+                              >
+                                {t('activity.save')}
+                              </button>
+                            </div>
                           </div>
-                          <input
-                            type="text"
-                            className="qr-input"
-                            placeholder={t('activity.qrNotePlaceholder')}
-                            value={a.qrNote || ''}
-                            onChange={(e) =>
-                              setActivityField(dayIndex, a.id, {
-                                qrNote: e.target.value,
-                              })
-                            }
-                          />
-                        </div>
-                        <div className="activity-row">
-                          <input
-                            type="text"
-                            className="addr-input"
-                            placeholder={t('activity.addressPlaceholder')}
-                            value={a.address || ''}
-                            onChange={(e) =>
-                              setActivityField(dayIndex, a.id, {
-                                address: e.target.value,
-                              })
-                            }
-                          />
-                          <button
-                            className="btn ghost tiny"
-                            onClick={() => locate(dayIndex, a)}
-                            disabled={geoState[a.id] === 'ing'}
-                          >
-                            {geoState[a.id] === 'ing'
-                              ? t('activity.geocoding')
-                              : t('activity.geocode')}
-                          </button>
-                        </div>
-                        {geoState[a.id] === 'fail' && (
-                          <span className="geo-fail">{t('activity.geoFail')}</span>
-                        )}
-                      </div>
-                      <button
-                        className="btn danger tiny"
-                        onClick={() => removeActivity(dayIndex, a.id)}
+                        </li>
+                      )
+                    }
+                    return (
+                      <li
+                        className="activity"
+                        key={a.id}
+                        draggable
+                        onDragStart={() => setDragIndex(idx)}
+                        onDragEnd={() => setDragIndex(null)}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={() => onDrop(dayIndex, idx)}
                       >
-                        {t('activity.delete')}
-                      </button>
-                    </li>
-                  ))}
+                        <span className="drag-handle" title="drag">⠿</span>
+                        <button
+                          type="button"
+                          className="activity-main-btn"
+                          onClick={() => startEdit(dayIndex, a)}
+                          aria-label={t('activity.edit')}
+                        >
+                          <span className="activity-icon">{categoryIcon(a.category)}</span>
+                          <span className="activity-time">{a.time || '--:--'}</span>
+                          <span className="activity-body">
+                            <span className="activity-title">{a.title}</span>
+                            {a.note && <span className="activity-note">{a.note}</span>}
+                            {(a.address || a.lat != null) && (
+                              <span className="activity-addr">
+                                📍 {a.address || `${a.lat?.toFixed(4)}, ${a.lng?.toFixed(4)}`}
+                                {a.address && <MapOpenButton address={a.address} />}
+                              </span>
+                            )}
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          className="btn ghost tiny edit-pen"
+                          onClick={() => startEdit(dayIndex, a)}
+                          aria-label={t('activity.edit')}
+                        >
+                          ✏️
+                        </button>
+                        <button
+                          className="btn danger tiny"
+                          onClick={() => removeActivity(dayIndex, a.id)}
+                        >
+                          {t('activity.delete')}
+                        </button>
+                      </li>
+                    )
+                  })}
                 </ul>
 
                 {addingForDay === dayIndex ? (
