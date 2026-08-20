@@ -15,6 +15,7 @@
 - 离线紧急看板（护照/签证/保险/紧急联系人/当地报警/使馆电话，存本行程、断网可读、可复制）
 - 打包清单（侧边栏勾选 + 常用物品）
 - 导出 PDF / 文本 / 分享链接（Base64 编码进 URL hash）
+- **Excel / CSV 一键导入**：拖拽 `.xlsx/.xls/.csv` 上传 或 直接粘贴表格，双语智能列名匹配（Date/Time/Activity/Type/Address/Price/Currency/Ticket…），可手动改列、实时预览，一键批量生成行程卡片（日期自动归天、币种自动识别）
 - Apple 极简视觉：毛玻璃、大圆角、微交互、深色模式手动开关（跟随系统/浅/深三态）、iPhone SafeArea 适配
 - 底部弹窗（Bottom Sheet）交互
 
