@@ -3,6 +3,7 @@ import { useI18n } from '../i18n/LanguageContext.jsx'
 import { createId } from '../storage.js'
 import { CURRENCIES } from '../budget.js'
 import CopyButton from './CopyButton.jsx'
+import Sheet from './Sheet.jsx'
 
 const HOTEL_SAMPLE = {
   name: 'Shinjuku Granbell Hotel',
@@ -122,7 +123,14 @@ export default function LodgingPanel({ trip, onUpdate }) {
           </div>
         ))}
 
-      {adding && (
+      <Sheet
+        open={adding}
+        onClose={() => {
+          setAdding(false)
+          setEditingId(null)
+        }}
+        title={editingId ? t('stay.edit') : t('stay.add')}
+      >
         <div className="stay-form">
           <div className="sample-row">
             <button type="button" className="btn ghost tiny" onClick={fillSample}>
@@ -222,7 +230,7 @@ export default function LodgingPanel({ trip, onUpdate }) {
             </button>
           </div>
         </div>
-      )}
+      </Sheet>
     </div>
   )
 }

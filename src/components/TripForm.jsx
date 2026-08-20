@@ -42,7 +42,7 @@ export default function TripForm({ initial, onSubmit, onCancel }) {
   }
 
   return (
-    <form className="card trip-form" onSubmit={handleSubmit}>
+    <form className="trip-form" onSubmit={handleSubmit}>
       <h2>{isEdit ? t('form.editTrip') : t('form.create')}</h2>
 
       <label className="field">

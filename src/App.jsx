@@ -12,6 +12,7 @@ import PackingList from './components/PackingList.jsx'
 import LodgingPanel from './components/LodgingPanel.jsx'
 import BudgetPanel from './components/BudgetPanel.jsx'
 import FlightsPanel from './components/FlightsPanel.jsx'
+import Sheet from './components/Sheet.jsx'
 
 export default function App() {
   const { t, lang, changeLang } = useI18n()
@@ -94,7 +95,7 @@ export default function App() {
 
   return (
     <div className="app">
-      <header className="topbar">
+      <header className="topbar glass">
         <div className="brand">
           <span className="brand-mark">✈</span>
           <div>
@@ -145,16 +146,7 @@ export default function App() {
         )}
 
         <main className="main">
-          {showForm ? (
-            <TripForm
-              initial={editing}
-              onSubmit={handleSubmitForm}
-              onCancel={() => {
-                setShowForm(false)
-                setEditing(null)
-              }}
-            />
-          ) : viewTrip ? (
+          {viewTrip ? (
             <>
               <div className="itinerary-toolbar">
                 <ExportPanel trip={viewTrip} />
@@ -175,6 +167,24 @@ export default function App() {
           )}
         </main>
       </div>
+
+      <Sheet
+        open={showForm}
+        onClose={() => {
+          setShowForm(false)
+          setEditing(null)
+        }}
+        title={editing ? t('form.editTrip') : t('form.create')}
+      >
+        <TripForm
+          initial={editing}
+          onSubmit={handleSubmitForm}
+          onCancel={() => {
+            setShowForm(false)
+            setEditing(null)
+          }}
+        />
+      </Sheet>
 
       {/* Hidden render root used by PDF export */}
       <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
