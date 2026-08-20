@@ -157,6 +157,7 @@ export default function Itinerary({ trip, onUpdate }) {
   const [editBudget, setEditBudget] = useState(false)
   const editDayRef = useRef(null)
   const fileRef = useRef(null)
+  const [lightbox, setLightbox] = useState(null) // enlarged image src (click to view)
 
   const dayIndices = Array.from({ length: trip.days }, (_, i) => i)
   const itinerary = trip.itinerary || {}
@@ -335,6 +336,7 @@ export default function Itinerary({ trip, onUpdate }) {
                             removeCustomAt={removeCustomAt}
                             onImagesPicked={onImagesPicked}
                             fileRef={fileRef}
+                    onImageClick={setLightbox}
                           />
                         </li>
                       )
@@ -385,7 +387,16 @@ export default function Itinerary({ trip, onUpdate }) {
                           {a.images && a.images.length > 0 && (
                             <div className="tl-images">
                               {a.images.map((src, i) => (
-                                <img key={i} src={src} alt="" className="tl-thumb" />
+                                <img
+                                  key={i}
+                                  src={src}
+                                  alt=""
+                                  className="tl-thumb"
+                                  role="button"
+                                  tabIndex={0}
+                                  onClick={() => setLightbox(src)}
+                                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setLightbox(src) }}
+                                />
                               ))}
                             </div>
                           )}
@@ -450,6 +461,7 @@ export default function Itinerary({ trip, onUpdate }) {
                     removeCustomAt={removeCustomAt}
                     onImagesPicked={onImagesPicked}
                     fileRef={fileRef}
+                    onImageClick={setLightbox}
                   />
                 ) : (
                   <button className="btn ghost small add-activity" onClick={() => startAdd(dayIndex)}>
@@ -466,6 +478,15 @@ export default function Itinerary({ trip, onUpdate }) {
           <MapPanel trip={trip} />
         </div>
       </div>
+
+      {lightbox && (
+        <div className="img-lightbox" role="dialog" aria-modal="true" onClick={() => setLightbox(null)}>
+          <button type="button" className="img-lightbox-close" aria-label="close" onClick={() => setLightbox(null)}>×</button>
+          <img src={lightbox} alt="" className="img-lightbox-img" onClick={(e) => e.stopPropagation()} />
+          <span className="img-lightbox-hint">{t('activity.lightboxHint')}</span>
+        </div>
+      )}
+
     </section>
   )
 }
@@ -491,6 +512,7 @@ function ActivityForm({
   removeCustomAt,
   onImagesPicked,
   fileRef,
+  onImageClick,
 }) {
   // Merge patch into the draft (works for both the ADD draft and the EDIT
   // draft, whose setters have different shapes). Always use a functional
@@ -515,7 +537,15 @@ function ActivityForm({
       <div className="af-images">
         {(draft.images || []).map((src, i) => (
           <div className="af-thumb-wrap" key={i}>
-            <img src={src} alt="" className="af-thumb" />
+            <img
+              src={src}
+              alt=""
+              className="af-thumb"
+              role="button"
+              tabIndex={0}
+              onClick={() => onImageClick && onImageClick(src)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onImageClick && onImageClick(src) }}
+            />
             <button type="button" className="af-thumb-x" onClick={() => set({ images: draft.images.filter((_, idx) => idx !== i) })} aria-label="delete">×</button>
           </div>
         ))}

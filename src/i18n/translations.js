@@ -104,6 +104,7 @@ export const translations = {
     'activity.qrNotePlaceholder': 'e.g. screenshot saved in Photos, barcode at gate',
     'activity.overlap': 'This activity overlaps with another activity.',
     'activity.optional': 'optional',
+    'activity.lightboxHint': 'Click anywhere to close',
 
     // Flights
     'flight.title': 'Flights',
@@ -311,6 +312,7 @@ export const translations = {
     'activity.fieldValue': '值',
     'activity.overlap': '此行程与另一个行程时间重叠。',
     'activity.optional': '可选',
+    'activity.lightboxHint': '点击任意处关闭',
 
     // Activity categories
     'cat.activity': '活动',
