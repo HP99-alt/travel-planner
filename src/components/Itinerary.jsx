@@ -6,10 +6,10 @@ import { CURRENCIES } from '../budget.js'
 import MapPanel from './MapPanel.jsx'
 import CopyButton from './CopyButton.jsx'
 import MapOpenButton from './MapOpenButton.jsx'
+import LinkifiedText from './LinkifiedText.jsx'
 import { dateForDay } from '../date.js'
 import { travelMinutes, travelModeFor, travelIconFor, directionsUrl } from '../travel.js'
-import LinkifiedText from './LinkifiedText.jsx'
-// Compute duration label (e.g. "1h 30m") from start/end time; blank if invalid.
+
 function computeDuration(start, end) {
   if (!start || !end) return ''
   const [sh, sm] = start.split(':').map(Number)
@@ -48,7 +48,6 @@ function sortByTime(list) {
   })
 }
 
-// Convert "HH:MM" to minutes since midnight; null if missing/invalid.
 function toMinutes(t) {
   if (!t || typeof t !== 'string' || !t.includes(':')) return null
   const [h, m] = t.split(':').map(Number)
@@ -56,10 +55,6 @@ function toMinutes(t) {
   return h * 60 + m
 }
 
-// Two time intervals [s1, e1) and [s2, e2) overlap when both have a defined
-// end and the start of one is strictly before the end of the other (and vice
-// versa). Point-in-time items (no endTime) never overlap — e.g. a "Hotel
-// Check-in" at 15:00 should not clash with a 14:00–16:00 activity.
 function intervalsOverlap(a, b) {
   const as = toMinutes(a.time)
   const ae = toMinutes(a.endTime)
@@ -69,8 +64,6 @@ function intervalsOverlap(a, b) {
   return as < be && bs < ae
 }
 
-// Returns a Set of item ids on a given day that overlap with at least one
-// other item on that same day. Does not block editing — only warns gently.
 function findOverlaps(list) {
   const ids = new Set()
   for (let i = 0; i < list.length; i++) {
@@ -136,23 +129,18 @@ export default function Itinerary({ trip, onUpdate }) {
   const [draft, setDraft] = useState(emptyDraft())
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [showBudget, setShowBudget] = useState(false)
-  const [dragState, setDragState] = useState(null) // { day, index } being dragged
-  const [geoState, setGeoState] = useState({})
-  const [editingId, setEditingId] = useState(null) // activity id, or 'new' for dup
+  const [dragState, setDragState] = useState(null)
+  const [editingId, setEditingId] = useState(null)
   const [editDraft, setEditDraft] = useState(null)
   const [editAdvanced, setEditAdvanced] = useState(false)
   const [editBudget, setEditBudget] = useState(false)
   const editDayRef = useRef(null)
   const fileRef = useRef(null)
-  const [lightbox, setLightbox] = useState(null) // enlarged image src (click to view)
-  // Travel-time connectors between consecutive located activities, per day.
-  const [travel, setTravel] = useState({}) // { [dayIndex]: [{ minutes, mode, a, b }] }
+  const [lightbox, setLightbox] = useState(null)
+  const [travel, setTravel] = useState({})
 
   const dayIndices = Array.from({ length: trip.days }, (_, i) => i)
 
-  // Compute travel-time connectors between consecutive activities that both
-  // have coordinates. Runs whenever the itinerary changes; results are cached
-  // in travel.js so re-renders don't re-query the routing service.
   useEffect(() => {
     let cancelled = false
     ;(async () => {
@@ -178,7 +166,6 @@ export default function Itinerary({ trip, onUpdate }) {
       if (!cancelled) setTravel(next)
     })()
     return () => { cancelled = true }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [JSON.stringify(trip.itinerary), trip.days])
 
   const itinerary = trip.itinerary || {}
@@ -186,7 +173,6 @@ export default function Itinerary({ trip, onUpdate }) {
   function activitiesForDay(dayIndex) {
     const sorted = sortByTime(itinerary[dayIndex] || [])
     const overlapIds = findOverlaps(sorted)
-    // Flag overlapping items (passive warning only — never blocks the user).
     return sorted.map((a) => ({ ...a, overlap: overlapIds.has(a.id) }))
   }
 
@@ -205,9 +191,6 @@ export default function Itinerary({ trip, onUpdate }) {
     updateDay(dayIndex, (itinerary[dayIndex] || []).filter((a) => a.id !== activityId))
   }
 
-  // Move an item from one day to another. The destination day is identified by
-  // its index, so its date is derived automatically (date = startDate + index)
-  // — no manual date editing needed. No-op if dropped on the same day+position.
   function moveItemToDay(fromDay, activityId, toDay) {
     if (fromDay === toDay) return
     const fromList = itinerary[fromDay] || []
@@ -217,15 +200,10 @@ export default function Itinerary({ trip, onUpdate }) {
     onUpdate({ ...trip, itinerary: next })
   }
 
-  // --- Day management (Part 14) ---
-  // Append a new empty day at the end (extend the trip by one day).
   function addDay() {
     onUpdate({ ...trip, days: trip.days + 1 })
   }
 
-  // Remove a day and re-index every later day down by one so all subsequent
-  // dates shift automatically (date = startDate + index). The removed day's
-  // items are dropped with it.
   function removeDay(dayIndex) {
     if (trip.days <= 1) return
     if ((itinerary[dayIndex] || []).length > 0) {
@@ -240,8 +218,6 @@ export default function Itinerary({ trip, onUpdate }) {
     onUpdate({ ...trip, days: trip.days - 1, itinerary: next })
   }
 
-  // Change the trip start date. All day dates are derived (startDate + index),
-  // so this single edit re-dates every day automatically.
   function changeStartDate(value) {
     if (!value) return
     onUpdate({ ...trip, startDate: value })
@@ -306,18 +282,6 @@ export default function Itinerary({ trip, onUpdate }) {
     setEditBudget(false)
   }
 
-  async function commitDuplicate(dayIndex) {
-    if (!(draft.title || '').trim()) return
-    await persist({ ...draft, id: createId() }, dayIndex, true)
-    setAddingForDay(null)
-    setEditingId(null)
-    setShowAdvanced(false)
-    setShowBudget(false)
-  }
-
-  // Custom key-value rows operate on the draft's `custom` array. Each helper
-  // receives the draft setter so it works for both the ADD draft and the EDIT
-  // draft (draft / editDraft) without tangled prop wiring.
   function addCustom(setDraftFn) {
     setDraftFn((d) => ({ ...d, custom: [...(d.custom || []), { key: '', value: '' }] }))
   }
@@ -414,9 +378,7 @@ export default function Itinerary({ trip, onUpdate }) {
                         <li className="tl-item edit-mode" key={a.id}>
                           <ActivityForm
                             draft={editDraft}
-                            setDraft={(patch) =>
-                              setEditDraft((d) => ({ ...(d || {}), ...(typeof patch === 'function' ? patch(d) : patch) }))
-                            }
+                            setDraft={setEditDraft}
                             showAdvanced={editAdvanced}
                             setShowAdvanced={setEditAdvanced}
                             showBudget={editBudget}
@@ -436,7 +398,7 @@ export default function Itinerary({ trip, onUpdate }) {
                             removeCustomAt={removeCustomAt}
                             onImagesPicked={onImagesPicked}
                             fileRef={fileRef}
-                    onImageClick={setLightbox}
+                            onImageClick={setLightbox}
                           />
                         </li>
                       )
@@ -453,14 +415,12 @@ export default function Itinerary({ trip, onUpdate }) {
                         onDrop={(e) => {
                           e.stopPropagation()
                           if (!dragState) return
-                          // Cross-day move: dropped onto another item in a new day.
                           if (dragState.day !== dayIndex) {
                             const item = (itinerary[dragState.day] || [])[dragState.index]
                             if (item) moveItemToDay(dragState.day, item.id, dayIndex)
                             setDragState(null)
                             return
                           }
-                          // Same-day reorder.
                           const list = [...(itinerary[dayIndex] || [])]
                           if (dragState.index === idx) { setDragState(null); return }
                           const [moved] = list.splice(dragState.index, 1)
@@ -478,14 +438,14 @@ export default function Itinerary({ trip, onUpdate }) {
                         </div>
                         <div className="tl-body">
                           <div className="tl-title">{a.title}</div>
-                        {a.address && (
-  <div className="tl-meta">
-    📍 <LinkifiedText text={a.address} />
-    <MapOpenButton address={a.address} />
-  </div>
-)}
-{dur && <div className="tl-meta">⏱ {dur}</div>}
-{a.note && <div className="tl-note"><LinkifiedText text={a.note} /></div>}
+                          {a.address && (
+                            <div className="tl-meta">
+                              📍 <LinkifiedText text={a.address} />
+                              <MapOpenButton address={a.address} />
+                            </div>
+                          )}
+                          {dur && <div className="tl-meta">⏱ {dur}</div>}
+                          {a.note && <div className="tl-note"><LinkifiedText text={a.note} /></div>}
                           {(a.estCost !== '' && a.estCost != null) || (a.actCost !== '' && a.actCost != null) ? (
                             <div className="tl-meta">
                               💰{' '}
@@ -514,9 +474,9 @@ export default function Itinerary({ trip, onUpdate }) {
                             <div className="tl-custom">
                               {a.custom.map((row, i) => (
                                 <div className="tl-custom-row" key={i}>
-                                  <span className="tl-custom-k">{row.key}</span>
+                                  {row.key && <span className="tl-custom-k">{row.key}: </span>}
                                   <span className="tl-custom-v">
-                                    {row.value}
+                                    <LinkifiedText text={row.value} />
                                     {row.value && <CopyButton value={row.value} />}
                                   </span>
                                 </div>
@@ -581,9 +541,7 @@ export default function Itinerary({ trip, onUpdate }) {
                 {isAdding ? (
                   <ActivityForm
                     draft={draft}
-                    setDraft={(patch) =>
-                      setDraft((d) => ({ ...(d || {}), ...(typeof patch === 'function' ? patch(d) : patch) }))
-                    }
+                    setDraft={setDraft}
                     showAdvanced={showAdvanced}
                     setShowAdvanced={setShowAdvanced}
                     showBudget={showBudget}
@@ -634,8 +592,6 @@ export default function Itinerary({ trip, onUpdate }) {
   )
 }
 
-// Shared Add / Edit / Duplicate form. Minimal by default; Advanced Details and
-// Budget expand on demand. `draft` shape matches the unified Activity model.
 function ActivityForm({
   draft,
   setDraft,
@@ -657,18 +613,12 @@ function ActivityForm({
   fileRef,
   onImageClick,
 }) {
-  // Merge patch into the draft (works for both the ADD draft and the EDIT
-  // draft, whose setters have different shapes). Always use a functional
-  // update so a single-field edit never wipes the other fields.
   const set = (patch) =>
     setDraft((d) => ({ ...(d || {}), ...(typeof patch === 'function' ? patch(d) : patch) }))
   const dur = computeDuration(draft.time, draft.endTime)
   const custom = draft.custom || []
   const [pasteActive, setPasteActive] = useState(false)
 
-  // Allow pasting a screenshot / image directly from the clipboard into the
-  // row (Ctrl/Cmd+V). Works with both `items` (image/png from clipboard) and
-  // `files`. Reads each image as a base64 dataURL and appends to the draft.
   async function handlePaste(e) {
     const cd = e.clipboardData
     if (!cd) return
@@ -686,27 +636,8 @@ function ActivityForm({
     }
     if (!files.length) return
     e.preventDefault()
-    // onImagesPicked reads each image and calls setArr([...arr, ...adds]).
-    // Pass a setter that merges the new images into the draft directly.
     onImagesPicked(files, draft.images || [], (next) => set({ images: next }))
   }
-
-  // Seed the standard flight-detail rows (user can still edit / add / delete).
-  // Only fills rows whose field name isn't already present, so it never
-  // clobbers existing data.
-  function seedDetails(standard) {
-    setDraft((d) => {
-      const existing = new Set((d.custom || []).map((r) => (r.key || '').toLowerCase()))
-      const additions = standard
-        .filter((k) => !existing.has(k.toLowerCase()))
-        .map((k) => ({ key: k, value: '' }))
-      return { ...d, custom: [...(d.custom || []), ...additions] }
-    })
-  }
-
-  const FLIGHT_FIELDS = ['Flight Number', 'Airline', 'From', 'To', 'Terminal', 'Gate', 'Seat', 'Baggage', 'Booking Reference']
-  const STAY_FIELDS = ['Booking Number', 'Room Type', 'Contact', 'Check-in Time', 'Check-out Time', 'Breakfast Included', 'Website']
-  const TRANSPORT_FIELDS = ['Driver', 'Plate Number', 'Pickup', 'Drop-off', 'Est. Fare']
 
   return (
     <div className="activity-form">
@@ -719,6 +650,44 @@ function ActivityForm({
       <input type="text" className="af-title" placeholder={t('activity.titlePlaceholder')} value={draft.title} autoFocus onChange={(e) => set({ title: e.target.value })} onKeyDown={(e) => { if (e.key === 'Enter') onAdd() }} />
       <input type="text" placeholder={t('activity.notePlaceholder')} value={draft.note} onChange={(e) => set({ note: e.target.value })} />
       <input type="text" placeholder={t('activity.addressPlaceholder')} value={draft.address} onChange={(e) => set({ address: e.target.value })} />
+
+      {/* 动态增加/删除多行区域 */}
+      <div className="custom-fields-section" style={{ marginTop: '8px', marginBottom: '8px' }}>
+        {custom.map((row, i) => (
+          <div key={i} style={{ display: 'flex', gap: '6px', marginBottom: '6px', alignItems: 'center' }}>
+            <input
+              type="text"
+              placeholder="Detail (e.g. Flight/Link)"
+              value={row.value}
+              onChange={(e) => setCustomAt(setDraft, i, { value: e.target.value })}
+              style={{ flex: 1 }}
+            />
+            <button
+              type="button"
+              onClick={() => removeCustomAt(setDraft, i)}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: '#ef4444',
+                cursor: 'pointer',
+                fontSize: '16px',
+                padding: '0 6px',
+              }}
+              title="Delete row"
+            >
+              ✕
+            </button>
+          </div>
+        ))}
+        <button
+          type="button"
+          className="btn ghost tiny"
+          onClick={() => addCustom(setDraft)}
+          style={{ width: '100%', borderStyle: 'dashed', marginTop: '4px' }}
+        >
+          ＋ Add Row
+        </button>
+      </div>
 
       <div
         className={`af-images ${pasteActive ? 'paste-active' : ''}`}
@@ -774,14 +743,8 @@ function ActivityForm({
       {showBudget && (
         <div className="adv-fields">
           <div className="af-row">
-            <label className="af-cost">
-              <span>{t('budget.estimated')}</span>
-              <input type="number" min="0" step="0.01" value={draft.estCost} onChange={(e) => set({ estCost: e.target.value })} />
-            </label>
-            <label className="af-cost">
-              <span>{t('budget.actual')}</span>
-              <input type="number" min="0" step="0.01" value={draft.actCost} onChange={(e) => set({ actCost: e.target.value })} />
-            </label>
+            <input type="number" placeholder="Est. Cost" value={draft.estCost} onChange={(e) => set({ estCost: e.target.value })} />
+            <input type="number" placeholder="Act. Cost" value={draft.actCost} onChange={(e) => set({ actCost: e.target.value })} />
             <select value={draft.currency} onChange={(e) => set({ currency: e.target.value })}>
               {CURRENCIES.map((c) => (
                 <option key={c} value={c}>{c}</option>
@@ -791,68 +754,13 @@ function ActivityForm({
         </div>
       )}
 
-      <button type="button" className="adv-toggle" onClick={() => setShowAdvanced(!showAdvanced)} aria-expanded={showAdvanced}>
-        {showAdvanced ? '▾' : '▸'} {t('activity.advanced')}
-      </button>
-
-      {showAdvanced && (
-        <div className="adv-fields">
-          <div className="cat-row">
-            {CATEGORIES.map((c) => (
-              <button type="button" key={c.key} className={`cat-chip ${draft.category === c.key ? 'active' : ''}`} onClick={() => set({ category: c.key })} title={t(c.labelKey)}>
-                {c.icon}
-              </button>
-            ))}
-          </div>
-          {draft.category === 'transport' && (
-            <div className="transport-types">
-              {TRANSPORT_TYPES.map((tt) => (
-                <button
-                  type="button"
-                  key={tt.key}
-                  className={`t-type ${draft.transportType === tt.key ? 'active' : ''}`}
-                  onClick={() => set({ transportType: tt.key })}
-                  title={tt.label}
-                >
-                  {tt.icon} {tt.label}
-                </button>
-              ))}
-            </div>
-          )}
-          <p className="adv-hint">{t('activity.customHint')}</p>
-          {draft.category === 'flight' && (
-            <button type="button" className="custom-seed" onClick={() => seedDetails(FLIGHT_FIELDS)}>
-              ✈️ {t('activity.seedFlight')}
-            </button>
-          )}
-          {draft.category === 'stay' && (
-            <button type="button" className="custom-seed" onClick={() => seedDetails(STAY_FIELDS)}>
-              🏨 {t('activity.seedStay')}
-            </button>
-          )}
-          {draft.category === 'transport' && (
-            <button type="button" className="custom-seed" onClick={() => seedDetails(TRANSPORT_FIELDS)}>
-              🚗 {t('activity.seedTransport')}
-            </button>
-          )}
-          <div className="custom-rows">
-            {custom.map((row, i) => (
-              <div className="custom-row" key={i}>
-                <input type="text" placeholder={t('activity.fieldName')} value={row.key} onChange={(e) => setCustomAt(setDraft, i, { key: e.target.value })} />
-                <input type="text" placeholder={t('activity.fieldValue')} value={row.value} onChange={(e) => setCustomAt(setDraft, i, { value: e.target.value })} />
-                <button type="button" className="custom-x" onClick={() => removeCustomAt(setDraft, i)} aria-label="delete">×</button>
-              </div>
-            ))}
-            <button type="button" className="custom-add" onClick={() => addCustom(setDraft)}>
-              + {t('activity.addRow')}
-            </button>
-          </div>
-        </div>
-      )}
-
-      <div className="form-actions">
-        <button className="btn ghost small" onClick={onCancel}>{t('form.cancel')}</button>
-        <button className="btn primary small" onClick={onAdd} disabled={!(draft.title || '').trim()}>{addLabel}</button>
+      <div className="af-buttons">
+        <button type="button" className="btn ghost small" onClick={onCancel}>
+          {t('activity.cancel')}
+        </button>
+        <button type="button" className="btn primary small" onClick={onAdd}>
+          {addLabel}
+        </button>
       </div>
     </div>
   )
