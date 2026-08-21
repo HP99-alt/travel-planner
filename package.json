@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite --host",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node test/integration.test.mjs && node test/imageUpload.test.mjs"
   },
   "dependencies": {
     "html2pdf.js": "^0.14.0",

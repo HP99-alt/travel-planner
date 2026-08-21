@@ -149,7 +149,7 @@ export default function Itinerary({ trip, onUpdate }) {
   const [draft, setDraft] = useState(emptyDraft())
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [showBudget, setShowBudget] = useState(false)
-  const [dragIndex, setDragIndex] = useState(null)
+  const [dragState, setDragState] = useState(null) // { day, index } being dragged
   const [geoState, setGeoState] = useState({})
   const [editingId, setEditingId] = useState(null) // activity id, or 'new' for dup
   const [editDraft, setEditDraft] = useState(null)
@@ -182,6 +182,18 @@ export default function Itinerary({ trip, onUpdate }) {
 
   function removeActivity(dayIndex, activityId) {
     updateDay(dayIndex, (itinerary[dayIndex] || []).filter((a) => a.id !== activityId))
+  }
+
+  // Move an item from one day to another. The destination day is identified by
+  // its index, so its date is derived automatically (date = startDate + index)
+  // — no manual date editing needed. No-op if dropped on the same day+position.
+  function moveItemToDay(fromDay, activityId, toDay) {
+    if (fromDay === toDay) return
+    const fromList = itinerary[fromDay] || []
+    const item = fromList.find((a) => a.id === activityId)
+    if (!item) return
+    const next = { ...itinerary, [fromDay]: fromList.filter((a) => a.id !== activityId), [toDay]: sortByTime([...(itinerary[toDay] || []), item]) }
+    onUpdate({ ...trip, itinerary: next })
   }
 
   async function persist(item, dayIndex, isNew) {
@@ -296,7 +308,18 @@ export default function Itinerary({ trip, onUpdate }) {
             const date = dateForDay(trip.startDate, dayIndex)
             const isAdding = addingForDay === dayIndex
             return (
-              <div className="day-card" key={dayIndex}>
+              <div
+                className="day-card"
+                key={dayIndex}
+                onDragOver={(e) => { if (dragState && dragState.day !== dayIndex) e.preventDefault() }}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  if (!dragState || dragState.day === dayIndex) return
+                  const item = (itinerary[dragState.day] || [])[dragState.index]
+                  if (item) moveItemToDay(dragState.day, item.id, dayIndex)
+                  setDragState(null)
+                }}
+              >
                 <div className="day-head">
                   <h3>
                     {t('itinerary.day')} {dayIndex + 1}
@@ -347,15 +370,25 @@ export default function Itinerary({ trip, onUpdate }) {
                         className="tl-item"
                         key={a.id}
                         draggable
-                        onDragStart={() => setDragIndex(idx)}
-                        onDragEnd={() => setDragIndex(null)}
+                        onDragStart={() => setDragState({ day: dayIndex, index: idx })}
+                        onDragEnd={() => setDragState(null)}
                         onDragOver={(e) => e.preventDefault()}
-                        onDrop={() => {
-                          if (dragIndex == null) return
+                        onDrop={(e) => {
+                          e.stopPropagation()
+                          if (!dragState) return
+                          // Cross-day move: dropped onto another item in a new day.
+                          if (dragState.day !== dayIndex) {
+                            const item = (itinerary[dragState.day] || [])[dragState.index]
+                            if (item) moveItemToDay(dragState.day, item.id, dayIndex)
+                            setDragState(null)
+                            return
+                          }
+                          // Same-day reorder.
                           const list = [...(itinerary[dayIndex] || [])]
-                          const [moved] = list.splice(dragIndex, 1)
+                          if (dragState.index === idx) { setDragState(null); return }
+                          const [moved] = list.splice(dragState.index, 1)
                           list.splice(idx, 0, moved)
-                          setDragIndex(null)
+                          setDragState(null)
                           updateDay(dayIndex, list)
                         }}
                       >
@@ -428,6 +461,23 @@ export default function Itinerary({ trip, onUpdate }) {
                             <button type="button" className="btn danger tiny" onClick={() => removeActivity(dayIndex, a.id)}>
                               {t('activity.delete')}
                             </button>
+                            <label className="move-day">
+                              <span className="visually-hidden">Move to day</span>
+                              <select
+                                value={dayIndex}
+                                onChange={(e) => moveItemToDay(dayIndex, a.id, Number(e.target.value))}
+                                aria-label="Move to day"
+                              >
+                                <option value={dayIndex} disabled>
+                                  {t('itinerary.day')} {dayIndex + 1}
+                                </option>
+                                {dayIndices.filter((d) => d !== dayIndex).map((d) => (
+                                  <option key={d} value={d}>
+                                    → {t('itinerary.day')} {d + 1}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
                           </div>
                         </div>
                       </li>
@@ -521,6 +571,49 @@ function ActivityForm({
     setDraft((d) => ({ ...(d || {}), ...(typeof patch === 'function' ? patch(d) : patch) }))
   const dur = computeDuration(draft.time, draft.endTime)
   const custom = draft.custom || []
+  const [pasteActive, setPasteActive] = useState(false)
+
+  // Allow pasting a screenshot / image directly from the clipboard into the
+  // row (Ctrl/Cmd+V). Works with both `items` (image/png from clipboard) and
+  // `files`. Reads each image as a base64 dataURL and appends to the draft.
+  async function handlePaste(e) {
+    const cd = e.clipboardData
+    if (!cd) return
+    const files = []
+    if (cd.files && cd.files.length) {
+      for (const f of Array.from(cd.files)) if (f.type.startsWith('image/')) files.push(f)
+    }
+    if (!files.length && cd.items) {
+      for (const it of Array.from(cd.items)) {
+        if (it.kind === 'file' && it.type.startsWith('image/')) {
+          const f = it.getAsFile()
+          if (f) files.push(f)
+        }
+      }
+    }
+    if (!files.length) return
+    e.preventDefault()
+    // onImagesPicked reads each image and calls setArr([...arr, ...adds]).
+    // Pass a setter that merges the new images into the draft directly.
+    onImagesPicked(files, draft.images || [], (next) => set({ images: next }))
+  }
+
+  // Seed the standard flight-detail rows (user can still edit / add / delete).
+  // Only fills rows whose field name isn't already present, so it never
+  // clobbers existing data.
+  function seedDetails(standard) {
+    setDraft((d) => {
+      const existing = new Set((d.custom || []).map((r) => (r.key || '').toLowerCase()))
+      const additions = standard
+        .filter((k) => !existing.has(k.toLowerCase()))
+        .map((k) => ({ key: k, value: '' }))
+      return { ...d, custom: [...(d.custom || []), ...additions] }
+    })
+  }
+
+  const FLIGHT_FIELDS = ['Flight Number', 'Airline', 'From', 'To', 'Terminal', 'Gate', 'Seat', 'Baggage', 'Booking Reference']
+  const STAY_FIELDS = ['Booking Number', 'Room Type', 'Contact', 'Check-in Time', 'Check-out Time', 'Breakfast Included', 'Website']
+  const TRANSPORT_FIELDS = ['Driver', 'Plate Number', 'Pickup', 'Drop-off', 'Est. Fare']
 
   return (
     <div className="activity-form">
@@ -534,7 +627,20 @@ function ActivityForm({
       <input type="text" placeholder={t('activity.notePlaceholder')} value={draft.note} onChange={(e) => set({ note: e.target.value })} />
       <input type="text" placeholder={t('activity.addressPlaceholder')} value={draft.address} onChange={(e) => set({ address: e.target.value })} />
 
-      <div className="af-images">
+      <div
+        className={`af-images ${pasteActive ? 'paste-active' : ''}`}
+        onPaste={handlePaste}
+        onDragOver={(e) => { if (Array.from(e.dataTransfer.items || []).some((i) => i.kind === 'file')) { e.preventDefault(); setPasteActive(true) } }}
+        onDragLeave={() => setPasteActive(false)}
+        onDrop={(e) => {
+          const files = Array.from(e.dataTransfer.files || []).filter((f) => f.type.startsWith('image/'))
+          if (files.length) {
+            e.preventDefault()
+            onImagesPicked(files, draft.images || [], (next) => set({ images: next }))
+          }
+          setPasteActive(false)
+        }}
+      >
         {(draft.images || []).map((src, i) => (
           <div className="af-thumb-wrap" key={i}>
             <img
@@ -552,6 +658,9 @@ function ActivityForm({
         <button type="button" className="af-img-add" onClick={() => fileRef.current?.click()}>
           🖼 {t('activity.image')}
         </button>
+        <span className="af-paste-hint" title={t('activity.pasteImageHint')}>
+          {t('activity.pasteImageHint')}
+        </span>
         <input
           ref={fileRef}
           type="file"
@@ -603,6 +712,21 @@ function ActivityForm({
             ))}
           </div>
           <p className="adv-hint">{t('activity.customHint')}</p>
+          {draft.category === 'flight' && (
+            <button type="button" className="custom-seed" onClick={() => seedDetails(FLIGHT_FIELDS)}>
+              ✈️ {t('activity.seedFlight')}
+            </button>
+          )}
+          {draft.category === 'stay' && (
+            <button type="button" className="custom-seed" onClick={() => seedDetails(STAY_FIELDS)}>
+              🏨 {t('activity.seedStay')}
+            </button>
+          )}
+          {draft.category === 'transport' && (
+            <button type="button" className="custom-seed" onClick={() => seedDetails(TRANSPORT_FIELDS)}>
+              🚗 {t('activity.seedTransport')}
+            </button>
+          )}
           <div className="custom-rows">
             {custom.map((row, i) => (
               <div className="custom-row" key={i}>

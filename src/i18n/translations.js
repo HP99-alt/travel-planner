@@ -79,6 +79,10 @@ export const translations = {
     'activity.fieldName': 'Field name',
     'activity.fieldValue': 'Value',
     'activity.customHint': 'Add any details you need — field names and values are up to you.',
+    'activity.seedFlight': 'Fill flight details',
+    'activity.seedStay': 'Fill lodging details',
+    'activity.seedTransport': 'Fill transport details',
+    'activity.pasteImageHint': 'Paste (Ctrl/Cmd+V) a screenshot here',
 
     // Activity categories
     'cat.activity': 'Activity',
@@ -312,6 +316,10 @@ export const translations = {
     'activity.fieldName': '字段名',
     'activity.fieldValue': '值',
     'activity.customHint': '自由添加任何资料 —— 字段名和值都由你自己决定。',
+    'activity.seedFlight': '填写航班信息',
+    'activity.seedStay': '填写住宿信息',
+    'activity.seedTransport': '填写交通信息',
+    'activity.pasteImageHint': '在此粘贴截图（Ctrl/Cmd+V）',
     'activity.overlap': '此行程与另一个行程时间重叠。',
     'activity.optional': '可选',
     'activity.lightboxHint': '点击任意处关闭',
