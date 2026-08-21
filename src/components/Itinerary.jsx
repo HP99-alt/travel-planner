@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { useI18n } from '../i18n/LanguageContext.jsx'
 import { createId } from '../storage.js'
-import { CATEGORIES, categoryIcon } from '../categories.js'
+import { CATEGORIES, categoryIcon, TRANSPORT_TYPES, transportIcon } from '../categories.js'
 import { CURRENCIES } from '../budget.js'
 import MapPanel from './MapPanel.jsx'
 import CopyButton from './CopyButton.jsx'
@@ -196,6 +196,36 @@ export default function Itinerary({ trip, onUpdate }) {
     onUpdate({ ...trip, itinerary: next })
   }
 
+  // --- Day management (Part 14) ---
+  // Append a new empty day at the end (extend the trip by one day).
+  function addDay() {
+    onUpdate({ ...trip, days: trip.days + 1 })
+  }
+
+  // Remove a day and re-index every later day down by one so all subsequent
+  // dates shift automatically (date = startDate + index). The removed day's
+  // items are dropped with it.
+  function removeDay(dayIndex) {
+    if (trip.days <= 1) return
+    if ((itinerary[dayIndex] || []).length > 0) {
+      if (!window.confirm(t('itinerary.removeDayConfirm'))) return
+    }
+    const next = {}
+    for (let d = 0; d < trip.days; d++) {
+      if (d === dayIndex) continue
+      const target = d > dayIndex ? d - 1 : d
+      next[target] = itinerary[d] || []
+    }
+    onUpdate({ ...trip, days: trip.days - 1, itinerary: next })
+  }
+
+  // Change the trip start date. All day dates are derived (startDate + index),
+  // so this single edit re-dates every day automatically.
+  function changeStartDate(value) {
+    if (!value) return
+    onUpdate({ ...trip, startDate: value })
+  }
+
   async function persist(item, dayIndex, isNew) {
     let lat = undefined
     let lng = undefined
@@ -297,8 +327,22 @@ export default function Itinerary({ trip, onUpdate }) {
   return (
     <section className="itinerary">
       <div className="itinerary-head">
-        <h1>{trip.name}</h1>
-        {trip.destination && <p className="trip-dest">{trip.destination}</p>}
+        <div className="ih-top">
+          <div>
+            <h1>{trip.name}</h1>
+            {trip.destination && <p className="trip-dest">{trip.destination}</p>}
+          </div>
+          <div className="day-mgmt">
+            <label className="dm-start" title={t('itinerary.startDate')}>
+              📅
+              <input type="date" value={trip.startDate || ''} onChange={(e) => changeStartDate(e.target.value)} />
+            </label>
+            <button type="button" className="btn ghost tiny" onClick={addDay}>
+              ＋ {t('itinerary.addDay')}
+            </button>
+          </div>
+        </div>
+        <p className="ih-hint">{t('itinerary.date')}: {dateForDay(trip.startDate, 0)} → {dateForDay(trip.startDate, trip.days - 1)} · {trip.days} {t('itinerary.daysLabel')}</p>
       </div>
 
       <div className="itinerary-cols">
@@ -324,7 +368,19 @@ export default function Itinerary({ trip, onUpdate }) {
                   <h3>
                     {t('itinerary.day')} {dayIndex + 1}
                   </h3>
-                  {date && <span className="day-date">{date}</span>}
+                  <div className="day-head-right">
+                    {date && <span className="day-date">{date}</span>}
+                    <button
+                      type="button"
+                      className="day-remove"
+                      title={t('itinerary.removeDay')}
+                      aria-label={t('itinerary.removeDay')}
+                      onClick={() => removeDay(dayIndex)}
+                      disabled={trip.days <= 1}
+                    >
+                      ✕
+                    </button>
+                  </div>
                 </div>
 
                 <ul className="timeline">
@@ -397,7 +453,7 @@ export default function Itinerary({ trip, onUpdate }) {
                           {a.endTime ? ` – ${formatTime12(a.endTime, lang)}` : ''}
                         </div>
                         <div className="tl-dot" aria-hidden="true">
-                          {categoryIcon(a.category)}
+                          {a.category === 'transport' && a.transportType ? transportIcon(a.transportType) : categoryIcon(a.category)}
                         </div>
                         <div className="tl-body">
                           <div className="tl-title">{a.title}</div>
@@ -711,6 +767,21 @@ function ActivityForm({
               </button>
             ))}
           </div>
+          {draft.category === 'transport' && (
+            <div className="transport-types">
+              {TRANSPORT_TYPES.map((tt) => (
+                <button
+                  type="button"
+                  key={tt.key}
+                  className={`t-type ${draft.transportType === tt.key ? 'active' : ''}`}
+                  onClick={() => set({ transportType: tt.key })}
+                  title={tt.label}
+                >
+                  {tt.icon} {tt.label}
+                </button>
+              ))}
+            </div>
+          )}
           <p className="adv-hint">{t('activity.customHint')}</p>
           {draft.category === 'flight' && (
             <button type="button" className="custom-seed" onClick={() => seedDetails(FLIGHT_FIELDS)}>

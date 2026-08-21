@@ -100,6 +100,7 @@ const lsStub = {
 }
 try { Object.defineProperty(window, 'localStorage', { value: lsStub, configurable: true }) } catch { window.localStorage = lsStub }
 window.fetch = async () => ({ json: async () => [] })
+window.confirm = () => true
 // FileReader + Blob for image reading
 let frCalls = 0
 window.FileReader = class {
@@ -213,6 +214,47 @@ if (addBtns.length) {
 
 // Paste hint always visible
 check('Paste hint rendered', [...window.document.querySelectorAll('.af-paste-hint')].some((e) => e.textContent.length > 0))
+
+// --- Part 14: Day management ---
+// Add Day button should append a new day card.
+const addDayBtn = [...window.document.querySelectorAll('.day-mgmt button')].find((b) => /Add Day|增加一天/.test(b.textContent))
+check('Add Day button present', !!addDayBtn)
+const beforeDays = window.document.querySelectorAll('.day-card').length
+if (addDayBtn) {
+  addDayBtn.click()
+  await new Promise((r) => setTimeout(r, 60))
+}
+check('Add Day appends a day card', window.document.querySelectorAll('.day-card').length === beforeDays + 1)
+
+// Per-day remove button present (disabled only when a single day remains).
+const removeBtns = [...window.document.querySelectorAll('.day-remove')]
+check('Per-day Remove button present', removeBtns.length > 0)
+
+// Remove an empty last day (the one we just added) decrements day cards.
+const lastRemove = removeBtns[removeBtns.length - 1]
+window.confirm = () => true // auto-confirm destructive action in harness
+if (lastRemove && !lastRemove.disabled) {
+  lastRemove.click()
+  await new Promise((r) => setTimeout(r, 60))
+}
+check('Remove Day decrements day cards', window.document.querySelectorAll('.day-card').length === beforeDays)
+
+// Transport type presets render when category=transport (open a fresh Add form).
+const addBtn2 = window.document.querySelector('.add-activity')
+if (addBtn2) {
+  addBtn2.click()
+  await new Promise((r) => setTimeout(r, 50))
+  const advToggles2 = [...window.document.querySelectorAll('.adv-toggle')]
+  advToggles2[advToggles2.length - 1].click()
+  await new Promise((r) => setTimeout(r, 50))
+  const transportChip2 = [...window.document.querySelectorAll('.cat-chip')].find((b) => b.title && /transport/i.test(b.title))
+  if (transportChip2) {
+    transportChip2.click()
+    await new Promise((r) => setTimeout(r, 50))
+    const tTypes = window.document.querySelectorAll('.transport-types .t-type')
+    check('Transport type presets render (Grab/Taxi/Bus/...)', tTypes.length >= 6)
+  }
+}
 
 const failed = results.filter((r) => !r.ok)
 console.log(`\n${results.length - failed.length}/${results.length} checks passed`)
