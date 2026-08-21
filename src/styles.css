@@ -695,7 +695,7 @@ body {
 .tl-item {
   position: relative;
   display: grid;
-  grid-template-columns: 72px 28px minmax(0, 1fr);
+  grid-template-columns: 130px 28px minmax(0, 1fr); /* 从 72px 改为 130px */
   gap: 8px;
   padding: 6px 0 14px;
   cursor: grab;
@@ -713,7 +713,7 @@ body {
 .tl-item::before {
   content: '';
   position: absolute;
-  left: 77px; /* 64 + 28/2 - 1 */
+  left: 151px; /* 原来是 77px，随第一列加宽调整为 151px */
   top: 30px;
   bottom: -4px;
   width: 2px;
@@ -743,7 +743,7 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 2px 0 2px 30px;
+  margin: 2px 0 2px 104px; /* 根据实际视觉调整左边距 */
   position: relative;
 }
 .tl-travel-line {
