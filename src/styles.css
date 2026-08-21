@@ -724,6 +724,7 @@ body {
 }
 
 .tl-time {
+  min-width: 0;
   font-variant-numeric: tabular-nums;
   font-weight: 600;
   font-size: 12.5px;
@@ -731,6 +732,8 @@ body {
   padding-top: 2px;
   text-align: right;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Travel-time connector between consecutive activities (Part 17).
@@ -776,12 +779,18 @@ body {
 
 .tl-body {
   min-width: 0;
+  width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
-
 .tl-title {
+  min-width: 0;
+  max-width: 100%;
   font-size: 15px;
   font-weight: 500;
-  line-height: 1.25;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .tl-meta {
