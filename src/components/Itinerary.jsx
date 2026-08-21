@@ -8,7 +8,7 @@ import CopyButton from './CopyButton.jsx'
 import MapOpenButton from './MapOpenButton.jsx'
 import { dateForDay } from '../date.js'
 import { travelMinutes, travelModeFor, travelIconFor, directionsUrl } from '../travel.js'
-
+import LinkifiedText from './LinkifiedText.jsx'
 // Compute duration label (e.g. "1h 30m") from start/end time; blank if invalid.
 function computeDuration(start, end) {
   if (!start || !end) return ''
@@ -478,14 +478,14 @@ export default function Itinerary({ trip, onUpdate }) {
                         </div>
                         <div className="tl-body">
                           <div className="tl-title">{a.title}</div>
-                          {a.address && (
-                            <div className="tl-meta">
-                              📍 {a.address}
-                              <MapOpenButton address={a.address} />
-                            </div>
-                          )}
-                          {dur && <div className="tl-meta">⏱ {dur}</div>}
-                          {a.note && <div className="tl-note">{a.note}</div>}
+                        {a.address && (
+  <div className="tl-meta">
+    📍 <LinkifiedText text={a.address} />
+    <MapOpenButton address={a.address} />
+  </div>
+)}
+{dur && <div className="tl-meta">⏱ {dur}</div>}
+{a.note && <div className="tl-note"><LinkifiedText text={a.note} /></div>}
                           {(a.estCost !== '' && a.estCost != null) || (a.actCost !== '' && a.actCost != null) ? (
                             <div className="tl-meta">
                               💰{' '}
