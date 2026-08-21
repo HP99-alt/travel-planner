@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useI18n } from '../i18n/LanguageContext.jsx'
 import { createId } from '../storage.js'
+import { diffDays, addDays, todayISO, parseISODate, toISODate } from '../date.js'
 
 const MONTHS_EN = {
   jan: 0, feb: 1, mar: 2, apr: 3, mac: 3, may: 4, Mei: 4, mei: 4, jun: 5,
@@ -30,28 +31,6 @@ function detectCurrency(text) {
     }
   }
   return { currency: null, amount: null, clean: text }
-}
-
-function diffDays(a, b) {
-  const da = new Date(a + 'T00:00:00')
-  const db = new Date(b + 'T00:00:00')
-  if (Number.isNaN(da.getTime()) || Number.isNaN(db.getTime())) return 0
-  return Math.round((db - da) / 86400000)
-}
-
-function todayISO() {
-  const d = new Date()
-  const mm = String(d.getMonth() + 1).padStart(2, '0')
-  const dd = String(d.getDate()).padStart(2, '0')
-  return `${d.getFullYear()}-${mm}-${dd}`
-}
-
-function addDays(iso, n) {
-  const d = new Date(iso + 'T00:00:00')
-  d.setDate(d.getDate() + n)
-  const mm = String(d.getMonth() + 1).padStart(2, '0')
-  const dd = String(d.getDate()).padStart(2, '0')
-  return `${d.getFullYear()}-${mm}-${dd}`
 }
 
 // Parse a line like "Aug 20 10:00 Senso-ji" or "8月20日 10:00 浅草寺"
@@ -93,10 +72,10 @@ function parseLine(line, startDate) {
   }
 
   if (matchMonth != null && matchDay != null && startDate) {
-    const year = new Date(startDate + 'T00:00:00').getFullYear()
+    const year = parseISODate(startDate)?.getFullYear() ?? new Date().getFullYear()
     const d = new Date(year, matchMonth, matchDay)
     if (!Number.isNaN(d.getTime())) {
-      dayOffset = diffDays(startDate, d.toISOString().slice(0, 10))
+      dayOffset = diffDays(startDate, toISODate(d))
     }
   }
 

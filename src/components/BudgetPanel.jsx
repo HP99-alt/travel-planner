@@ -1,11 +1,19 @@
 import { useState } from 'react'
 import { useI18n } from '../i18n/LanguageContext.jsx'
-import { computeBudget, CURRENCIES, BUDGET_GROUPS } from '../budget.js'
+import {
+  computeBudget,
+  computeDayBudget,
+  CURRENCIES,
+  BUDGET_GROUPS,
+  BUDGET_GROUP_ORDER,
+  EXTRA_GROUPS,
+} from '../budget.js'
+import { dateForDay } from '../date.js'
 
 const fmt = (n) => Math.round(n).toLocaleString(undefined, { maximumFractionDigits: 0 })
 
 export default function BudgetPanel({ trip, onUpdate }) {
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
   const [adding, setAdding] = useState(false)
   const [label, setLabel] = useState('')
   const [amount, setAmount] = useState('')
@@ -33,7 +41,7 @@ export default function BudgetPanel({ trip, onUpdate }) {
     onUpdate({ ...trip, extraCosts: extra.filter((e) => e.id !== id) })
   }
 
-  const groups = Object.keys(BUDGET_GROUPS)
+  const noCost = !b.hasCost && extra.length === 0
 
   return (
     <div className="panel budget-panel">
@@ -46,7 +54,7 @@ export default function BudgetPanel({ trip, onUpdate }) {
         )}
       </div>
 
-      {!b.hasCost && extra.length === 0 ? (
+      {noCost ? (
         <p className="empty-hint">{t('budget.noCost')}</p>
       ) : (
         <>
@@ -65,9 +73,10 @@ export default function BudgetPanel({ trip, onUpdate }) {
             </div>
           </div>
 
+          {/* By category breakdown (Flights / Stay / Food / Transport / Activities / Shopping) */}
           <div className="budget-groups">
             <div className="budget-by-cur-head">{t('budget.byCategory')}</div>
-            {groups.map((g) => {
+            {BUDGET_GROUP_ORDER.map((g) => {
               const est = b.byGroupEst[g] || 0
               const act = b.byGroupAct[g] || 0
               if (est === 0 && act === 0) return null
@@ -77,6 +86,28 @@ export default function BudgetPanel({ trip, onUpdate }) {
                   <span>
                     {est ? `RM ${fmt(est)}` : '—'}
                     {act ? ` · ${t('budget.actual')} RM ${fmt(act)}` : ''}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Daily Budget (Part 20) — kept separate from the main timeline */}
+          <div className="budget-daily">
+            <div className="budget-by-cur-head">{t('budget.byDay')}</div>
+            {Array.from({ length: trip.days }, (_, i) => {
+              const d = computeDayBudget(trip, i)
+              if (!d.hasCost) return null
+              const date = dateForDay(trip.startDate, i)
+              return (
+                <div className="budget-row" key={i}>
+                  <span>
+                    {t('itinerary.day')} {i + 1}
+                    {date ? <span className="budget-day-date"> · {date}</span> : null}
+                  </span>
+                  <span>
+                    {d.estMYR ? `RM ${fmt(d.estMYR)}` : '—'}
+                    {d.actMYR ? ` · ${t('budget.actual')} RM ${fmt(d.actMYR)}` : ''}
                   </span>
                 </div>
               )
@@ -128,7 +159,7 @@ export default function BudgetPanel({ trip, onUpdate }) {
             </select>
           </div>
           <select value={group} onChange={(e) => setGroup(e.target.value)}>
-            {groups.map((g) => (
+            {EXTRA_GROUPS.map((g) => (
               <option key={g} value={g}>{t(BUDGET_GROUPS[g])}</option>
             ))}
           </select>

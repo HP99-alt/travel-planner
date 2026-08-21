@@ -1,16 +1,7 @@
 import { useI18n } from '../i18n/LanguageContext.jsx'
 import { categoryIcon } from '../categories.js'
 import { computeBudget } from '../budget.js'
-
-function dateForDay(startDate, dayIndex) {
-  if (!startDate) return ''
-  const d = new Date(startDate + 'T00:00:00')
-  if (Number.isNaN(d.getTime())) return ''
-  d.setDate(d.getDate() + dayIndex)
-  const mm = String(d.getMonth() + 1).padStart(2, '0')
-  const dd = String(d.getDate()).padStart(2, '0')
-  return `${d.getFullYear()}-${mm}-${dd}`
-}
+import { dateForDay } from '../date.js'
 
 // Separate, print-optimized rendering of the trip used as the PDF source.
 export default function PdfView({ trip }) {

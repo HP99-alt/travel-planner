@@ -3,6 +3,7 @@
 // Centralized here so TripForm (paste) and ImportExcelButton (file/paste)
 // reuse the exact same logic.
 import * as XLSX from 'xlsx'
+import { parseISODate } from './date.js'
 
 const MONTHS_EN = {
   jan: 0, feb: 1, mar: 2, apr: 3, mac: 3, may: 4, Mei: 4, mei: 4, jun: 5,
@@ -34,10 +35,10 @@ export function detectCurrency(text) {
 }
 
 export function diffDays(a, b) {
-  const da = new Date(a + 'T00:00:00')
-  const db = new Date(b + 'T00:00:00')
-  if (Number.isNaN(da.getTime()) || Number.isNaN(db.getTime())) return 0
-  return Math.round((db - da) / 86400000)
+  const da = parseISODate(a)
+  const db = parseISODate(b)
+  if (!da || !db) return 0
+  return Math.round((db.getTime() - da.getTime()) / 86400000)
 }
 
 // Build a local YYYY-MM-DD string WITHOUT timezone shift (unlike toISOString).
@@ -264,7 +265,7 @@ function normalizeCategory(value) {
 //   address, ticketNo, price(Number|''), currency, raw } where raw keeps the
 //   original cells for preview. dayIndex = dayOffset clamped to >=0.
 export function buildActivities({ headers, rows }, mapping, { startDate, defaultCurrency = 'MYR' }) {
-  const fallbackYear = startDate ? new Date(startDate + 'T00:00:00').getFullYear() : new Date().getFullYear()
+  const fallbackYear = startDate ? parseISODate(startDate)?.getFullYear() ?? new Date().getFullYear() : new Date().getFullYear()
   const out = []
   for (const cells of rows) {
     const get = (field) => {

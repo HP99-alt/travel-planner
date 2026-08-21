@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useI18n } from '../i18n/LanguageContext.jsx'
 import { createId } from '../storage.js'
+import { addDays as addDaysSafe } from '../date.js'
 import {
   XLSX,
   parseTableText,
@@ -167,11 +168,7 @@ export default function ImportExcelButton({ onImport, defaultCurrency = 'MYR' })
   }
 
   function addDays(iso, n) {
-    const d = new Date(iso + 'T00:00:00')
-    d.setDate(d.getDate() + n)
-    const mm = String(d.getMonth() + 1).padStart(2, '0')
-    const dd = String(d.getDate()).padStart(2, '0')
-    return `${d.getFullYear()}-${mm}-${dd}`
+    return addDaysSafe(iso, n)
   }
 
   const hasData = headers.length > 0 && rows.length > 0

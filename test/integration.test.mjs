@@ -81,11 +81,12 @@ const seedTrip = {
   days: 3,
   itinerary: {
     0: [
-      { id: 'a1', time: '09:00', endTime: '10:00', title: 'Senso-ji', note: '', category: 'sight', address: 'Asakusa', estCost: '', actCost: '', currency: 'MYR', images: [], custom: [] },
-      { id: 'a2', time: '14:00', endTime: '16:00', title: 'Ginza', note: '', category: 'activity', address: '', estCost: '', actCost: '', currency: 'MYR', images: [], custom: [] },
+      { id: 'a0', time: '08:00', endTime: '08:30', title: 'Morning Walk', note: '', category: 'activity', address: 'Ueno, Tokyo', estCost: '', actCost: '', currency: 'MYR', images: [], custom: [] },
+      { id: 'a1', time: '09:00', endTime: '10:00', title: 'Senso-ji', note: '', category: 'sight', address: 'Asakusa, Tokyo', estCost: '', actCost: '', currency: 'MYR', images: [], custom: [] },
+      { id: 'a2', time: '14:00', endTime: '16:00', title: 'Ginza', note: '', category: 'activity', address: 'Ginza, Tokyo', estCost: '50', actCost: '45', currency: 'MYR', images: [], custom: [] },
     ],
     1: [
-      { id: 'a3', time: '10:00', endTime: '12:00', title: 'Flight to Osaka', note: '', category: 'flight', address: 'HND → KIX', estCost: '', actCost: '', currency: 'MYR', images: [], custom: [] },
+      { id: 'a3', time: '10:00', endTime: '12:00', title: 'Flight to Osaka', note: '', category: 'flight', address: 'Haneda Airport', estCost: '600', actCost: '', currency: 'MYR', images: [], custom: [] },
     ],
   },
   packing: [],
@@ -99,8 +100,22 @@ const lsStub = {
   removeItem: (k) => { delete store[k] },
 }
 try { Object.defineProperty(window, 'localStorage', { value: lsStub, configurable: true }) } catch { window.localStorage = lsStub }
-window.fetch = async () => ({ json: async () => [] })
+// Fetch stub: returns Nominatim-style coords for geocoding and OSRM-style
+// durations for travel routing, so the Map + travel connectors can render.
+window.fetch = async (url) => {
+  if (typeof url === 'string' && url.includes('nominatim')) {
+    return { json: async () => [{ lat: '35.7148', lon: '139.7967' }] }
+  }
+  if (typeof url === 'string' && url.includes('router.project-osrm.org')) {
+    return { json: async () => ({ routes: [{ duration: 720 }] }) } // 12 min
+  }
+  return { json: async () => [] }
+}
 window.confirm = () => true
+// The bundled app references the GLOBAL `fetch` (Node 22 provides one), not
+// window.fetch — so override the global too, or geocode/travel hit the network.
+globalThis.fetch = window.fetch
+globalThis.btoa = (s) => Buffer.from(s, 'binary').toString('base64')
 // FileReader + Blob for image reading
 let frCalls = 0
 window.FileReader = class {
@@ -255,6 +270,28 @@ if (addBtn2) {
     check('Transport type presets render (Grab/Taxi/Bus/...)', tTypes.length >= 6)
   }
 }
+
+// --- Parts 16 & 17: Map pins + travel connectors (async geocode/routing) ---
+// Re-render: close any open form so the timeline is stable, then wait for the
+// async geocode + travel effects to resolve.
+const cancelBtn = [...window.document.querySelectorAll('.form-actions button')].find((b) => /Cancel|取消/.test(b.textContent))
+if (cancelBtn) cancelBtn.click()
+await new Promise((r) => setTimeout(r, 1500))
+
+// Part 16: Map should show a canvas (pins resolved via geocode), not "no pins".
+const mapCanvas = window.document.querySelector('.map-canvas')
+const mapEmpty = window.document.querySelector('.map-empty')
+check('Map shows pins (canvas rendered, not empty)', !!mapCanvas && !mapEmpty)
+
+// Part 17: travel-time connector appears between two located activities.
+const travelConns = window.document.querySelectorAll('.tl-travel')
+check('Travel-time connector renders between located activities', travelConns.length > 0)
+
+// --- Parts 18-20: Budget (trip totals, category groups, daily budget) ---
+const budgetText = window.document.querySelector('.budget-panel')?.textContent || ''
+check('Budget panel shows estimated total (RM)', /RM/.test(budgetText))
+check('Budget shows Daily budget section', /Daily budget|每日预算/.test(budgetText))
+check('Budget shows a category breakdown (Activities/Food/...)', /Activities|活动|Food|餐饮/.test(budgetText))
 
 const failed = results.filter((r) => !r.ok)
 console.log(`\n${results.length - failed.length}/${results.length} checks passed`)

@@ -170,6 +170,7 @@ export const translations = {
     'budget.totalActMYR': 'Total Actual (MYR)',
     'budget.remainingMYR': 'Remaining (MYR)',
     'budget.byCategory': 'By category',
+    'budget.byDay': 'Daily budget',
     'budget.standalone': 'Other expenses',
     'budget.addCost': 'Add Expense',
     'budget.amount': 'Amount',
@@ -179,6 +180,8 @@ export const translations = {
     'budget.catFlight': 'Flights',
     'budget.catStay': 'Stay',
     'budget.catOther': 'Other',
+    'budget.catActivity': 'Activities',
+    'budget.catShopping': 'Shopping',
 
     // Emergency board
     'emergency.title': 'Emergency',
@@ -413,6 +416,7 @@ export const translations = {
     'budget.totalActMYR': '实际合计（MYR）',
     'budget.remainingMYR': '剩余（MYR）',
     'budget.byCategory': '按类别',
+    'budget.byDay': '每日预算',
     'budget.standalone': '其他费用',
     'budget.addCost': '添加费用',
     'budget.amount': '金额',
@@ -422,6 +426,8 @@ export const translations = {
     'budget.catFlight': '机票',
     'budget.catStay': '住宿',
     'budget.catOther': '其他',
+    'budget.catActivity': '活动',
+    'budget.catShopping': '购物',
 
     // Emergency board
     'emergency.title': '紧急看板',

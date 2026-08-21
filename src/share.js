@@ -1,4 +1,6 @@
 // Share-link helpers: encode trip(s) into a URL hash, no backend required.
+import { dateForDay } from './date.js'
+
 const VERSION = 1
 
 function toBase64(str) {
@@ -48,15 +50,6 @@ export function clearHash() {
 }
 
 // Plain-text rendering of an itinerary, bilingual-friendly (uses raw data).
-function dateForDay(startDate, dayIndex) {
-  if (!startDate) return ''
-  const d = new Date(startDate + 'T00:00:00')
-  if (Number.isNaN(d.getTime())) return ''
-  d.setDate(d.getDate() + dayIndex)
-  const mm = String(d.getMonth() + 1).padStart(2, '0')
-  const dd = String(d.getDate()).padStart(2, '0')
-  return `${d.getFullYear()}-${mm}-${dd}`
-}
 
 export function tripToText(trip, catName) {
   const lines = []

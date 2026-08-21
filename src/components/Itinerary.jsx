@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { useI18n } from '../i18n/LanguageContext.jsx'
 import { createId } from '../storage.js'
 import { CATEGORIES, categoryIcon, TRANSPORT_TYPES, transportIcon } from '../categories.js'
@@ -6,21 +6,8 @@ import { CURRENCIES } from '../budget.js'
 import MapPanel from './MapPanel.jsx'
 import CopyButton from './CopyButton.jsx'
 import MapOpenButton from './MapOpenButton.jsx'
-
-// Build a YYYY-MM-DD string from local Y/M/D without timezone shifting.
-function isoYMD(y, m, d) {
-  const mm = String(m + 1).padStart(2, '0')
-  const dd = String(d).padStart(2, '0')
-  return `${y}-${mm}-${dd}`
-}
-
-function dateForDay(startDate, dayIndex) {
-  if (!startDate) return ''
-  const d = new Date(startDate + 'T00:00:00')
-  if (Number.isNaN(d.getTime())) return ''
-  d.setDate(d.getDate() + dayIndex)
-  return isoYMD(d.getFullYear(), d.getMonth(), d.getDate())
-}
+import { dateForDay } from '../date.js'
+import { travelMinutes, travelModeFor, travelIconFor, directionsUrl } from '../travel.js'
 
 // Compute duration label (e.g. "1h 30m") from start/end time; blank if invalid.
 function computeDuration(start, end) {
@@ -158,8 +145,42 @@ export default function Itinerary({ trip, onUpdate }) {
   const editDayRef = useRef(null)
   const fileRef = useRef(null)
   const [lightbox, setLightbox] = useState(null) // enlarged image src (click to view)
+  // Travel-time connectors between consecutive located activities, per day.
+  const [travel, setTravel] = useState({}) // { [dayIndex]: [{ minutes, mode, a, b }] }
 
   const dayIndices = Array.from({ length: trip.days }, (_, i) => i)
+
+  // Compute travel-time connectors between consecutive activities that both
+  // have coordinates. Runs whenever the itinerary changes; results are cached
+  // in travel.js so re-renders don't re-query the routing service.
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      const next = {}
+      for (const di of dayIndices) {
+        const list = sortByTime(itinerary[di] || []).filter(
+          (a) => typeof a.lat === 'number' && typeof a.lng === 'number',
+        )
+        const conns = []
+        for (let i = 0; i < list.length - 1; i++) {
+          const a = list[i]
+          const b = list[i + 1]
+          const mode = travelModeFor(b)
+          const minutes = await travelMinutes(
+            { lat: a.lat, lng: a.lng },
+            { lat: b.lat, lng: b.lng },
+            mode === 'transit' ? 'driving' : mode,
+          )
+          conns.push({ minutes, mode, aId: a.id, bId: b.id })
+        }
+        if (conns.length) next[di] = conns
+      }
+      if (!cancelled) setTravel(next)
+    })()
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(trip.itinerary), trip.days])
+
   const itinerary = trip.itinerary || {}
 
   function activitiesForDay(dayIndex) {
@@ -422,9 +443,9 @@ export default function Itinerary({ trip, onUpdate }) {
                     }
                     const dur = computeDuration(a.time, a.endTime)
                     return (
+                      <Fragment key={a.id}>
                       <li
                         className="tl-item"
-                        key={a.id}
                         draggable
                         onDragStart={() => setDragState({ day: dayIndex, index: idx })}
                         onDragEnd={() => setDragState(null)}
@@ -537,6 +558,22 @@ export default function Itinerary({ trip, onUpdate }) {
                           </div>
                         </div>
                       </li>
+                      {travel[dayIndex] && travel[dayIndex][idx] && (() => {
+                        const c = travel[dayIndex][idx]
+                        const a = (itinerary[dayIndex] || []).find((x) => x.id === c.aId)
+                        const b = (itinerary[dayIndex] || []).find((x) => x.id === c.bId)
+                        if (!a || !b) return null
+                        const url = directionsUrl({ lat: a.lat, lng: a.lng }, { lat: b.lat, lng: b.lng })
+                        return (
+                          <li className="tl-travel" key={'trav-' + c.aId + '-' + c.bId}>
+                            <span className="tl-travel-line" aria-hidden="true" />
+                            <a className="tl-travel-pill" href={url} target="_blank" rel="noopener noreferrer" title={t('map.open')}>
+                              {travelIconFor(c.mode)} {c.minutes} min
+                            </a>
+                          </li>
+                        )
+                      })()}
+                      </Fragment>
                     )
                   })}
                 </ul>
@@ -581,7 +618,7 @@ export default function Itinerary({ trip, onUpdate }) {
 
         <div className="map-panel">
           <h3 className="map-title">{t('map.title')}</h3>
-          <MapPanel trip={trip} />
+          <MapPanel trip={trip} onUpdate={onUpdate} />
         </div>
       </div>
 

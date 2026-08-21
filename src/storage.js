@@ -12,13 +12,16 @@
 
 const STORAGE_KEY = 'tsp.trips'
 
+// Timezone-safe date parsing (avoids the UTC off-by-one bug).
+import { parseISODate } from './date.js'
+
 // Day index for a given YYYY-MM-DD relative to the trip start date.
 function dayIndexFor(startDate, dateStr) {
   if (!startDate || !dateStr) return 0
-  const a = new Date(startDate + 'T00:00:00')
-  const b = new Date(dateStr + 'T00:00:00')
-  if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) return 0
-  return Math.max(0, Math.round((b - a) / 86400000))
+  const a = parseISODate(startDate)
+  const b = parseISODate(dateStr)
+  if (!a || !b) return 0
+  return Math.max(0, Math.round((b.getTime() - a.getTime()) / 86400000))
 }
 
 // Convert legacy trip.flights / trip.lodging into unified timeline items.

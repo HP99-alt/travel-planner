@@ -11,13 +11,17 @@
 - 交通细分类型：选 ✈️/🚗/🚌/🚆/🚇/🚶/🚙 等（Grab · Taxi · Bus · Train · MRT · Walking · Rental Car · Other），时间轴圆点随类型显示对应图标，Advanced Details 可填 Driver / Plate / Pickup / Drop-off / Est. Fare 并继续自由增删
 - 智能文本解析：粘贴「8月20日 10:00 浅草寺，14:00 银座」自动提取时间+活动并归到对应天；支持中/英/马来月份与币种自动识别（`RM/$/¥/€/£`）
 - 快捷模板：东京5日游 / 周末2日游 一键预填
-- 地图（Leaflet + OpenStreetMap）：地址一键定位 + 「🧭 在地图打开」外部导航深链
+- 地图（Leaflet + OpenStreetMap）：**自动连接 Itinerary** —— 任何带 Location/Address 的活动都会作为图钉出现（按分类上色：🏨 住宿 / 📍 景点 / 🍜 餐饮 / 🚗 交通 / ✈️ 航班），点击图钉弹出该活动详情与「Open in Maps」深链；无坐标时自动地理编码并回写持久化
+- **自动交通时间（Travel Time）**：两个相邻且都有地点的活动之间自动显示出行耗时连接器（如 `🚶 12 min` / `🚗 18 min`），与活动本身的 Duration 视觉分离、互不混淆；点击可在 Google/Apple Maps 打开导航
 - **统一 Timeline 架构**：机票 ✈️ / 住宿 🏨 / 交通 🚆 与活动同为时间轴上的条目类型，单一数据源（Single Source of Truth）；每项支持开始/结束时间 + 自动时长（如 1h 30m），按开始时间自动排序
 - 无限自定义字段（Advanced Details）：自由增删的 Key–Value 行，活动图片/截图上传（预览/更换/删除/**直接 Ctrl/Cmd+V 粘贴截图到图片区即上传**）
 - 分类专属预设：航班 ✈️ / 住宿 🏨 / 交通 🚗 一键填入常用字段（航班号/起降/航站楼/座位/行李/预订号 · 预订号/房型/入住退房/早餐/网址 · 司机/车牌/上车下车/预估车费），仍可自由增删
 - 每个条目均可编辑 / 复制 / 删除：复制会带出标题、时间、地点、图片、预算与全部自定义字段，改差异即可
-- 双重预算联动：活动级预估/实际费用 + 独立预算面板（按 Food/Accom/Transport/Flights/Shopping 分类汇总、折合 MYR），并支持不挂活动的独立开销（如 Travel Insurance）
-- 多币种预算（默认 MYR，内置静态参考汇率，按币种汇总 + 折合 MYR）
+- 双重预算联动：
+  - **A. 活动级 Budget（可选）**：每个活动可填 Estimated / Actual / Currency，不强制
+  - **B. 整个 Trip Budget**：Estimated Total / Actual Total / Remaining，并按分类汇总（✈️ Flights / 🏨 Accommodation / 🍜 Food / 🚗 Transport / 🎟 Activities / 🛍 Shopping / 其他），折合 MYR
+  - **C. 独立 Budget Item（不挂活动）**：如 Travel Insurance，仍计入 Trip Budget（Add Expense 可选分类）
+  - **D. 每日预算（Daily Budget）**：每个 Day 显示 Estimated / Actual，不与主 Timeline 混排
 - 离线紧急看板（护照/签证/保险/紧急联系人/当地报警/使馆电话，存本行程、断网可读、可复制）
 - 打包清单（侧边栏勾选 + 常用物品）
 - 导出 PDF / 文本 / 分享链接（Base64 编码进 URL hash）
