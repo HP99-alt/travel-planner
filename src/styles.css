@@ -695,10 +695,15 @@ body {
 .tl-item {
   position: relative;
   display: grid;
-  grid-template-columns: 64px 28px 1fr;
+  grid-template-columns: 72px 28px minmax(0, 1fr);
   gap: 8px;
   padding: 6px 0 14px;
   cursor: grab;
+  min-width: 0;
+}
+
+.tl-item:active {
+  cursor: grabbing;
 }
 .tl-item:active {
   cursor: grabbing;
