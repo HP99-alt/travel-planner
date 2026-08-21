@@ -727,13 +727,13 @@ body {
   min-width: 0;
   font-variant-numeric: tabular-nums;
   font-weight: 600;
-  font-size: 12.5px;
+  font-size: 12px;
   color: var(--primary);
   padding-top: 2px;
   text-align: right;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;      
+  word-break: break-word;   
+  line-height: 1.35;
 }
 
 /* Travel-time connector between consecutive activities (Part 17).
@@ -2192,4 +2192,19 @@ body {
 .img-lightbox-hint {
   color: rgba(255, 255, 255, 0.7);
   font-size: 12.5px;
+}
+/* 让长链接变蓝色、有下划线，且允许长网址换行不破框 */
+.tl-custom-v a,
+.tl-body a,
+.tl-note a {
+  color: var(--primary, #0a84ff);
+  text-decoration: underline;
+  word-break: break-all;     /* 避免超长链接溢出框外 */
+  display: inline-block;
+}
+
+.tl-custom-v a:hover,
+.tl-body a:hover,
+.tl-note a:hover {
+  color: var(--primary-press, #0066d6);
 }
