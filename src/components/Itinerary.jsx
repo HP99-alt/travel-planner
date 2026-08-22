@@ -8,7 +8,7 @@ import CopyButton from './CopyButton.jsx'
 import MapOpenButton from './MapOpenButton.jsx'
 import LinkifiedText from './LinkifiedText.jsx'
 import { dateForDay } from '../date.js'
-import { travelMinutes, travelModeFor, travelIconFor, directionsUrl } from '../travel.js'
+import { travelMinutes, travelModeFor } from '../travel.js'
 
 function computeDuration(start, end) {
   if (!start || !end) return ''
@@ -24,7 +24,6 @@ function computeDuration(start, end) {
   return `${m}m`
 }
 
-// 自动计算住宿天数/晚数
 function computeNights(checkIn, checkOut) {
   if (!checkIn || !checkOut) return ''
   const start = new Date(checkIn)
@@ -45,7 +44,7 @@ async function geocode(address) {
       return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) }
     }
   } catch {
-    /* best-effort */
+    /* best-effort offline fallback */
   }
   return null
 }
@@ -97,7 +96,6 @@ function readImage(file) {
   })
 }
 
-// 扩展草稿结构，加入住宿日期和电话字段
 function emptyDraft(section = 'activity') {
   return {
     section,
@@ -220,8 +218,7 @@ export default function Itinerary({ trip, onUpdate }) {
         lng = g.lng
       }
     }
-    // 即使 title 为空也允许设置默认名称保存
-    const finalTitle = (item.title || '').trim() || (item.section === 'accommodation' ? 'Accommodation Place' : 'Untitled Event')
+    const finalTitle = (item.title || '').trim() || (item.section === 'accommodation' ? 'Accommodation' : 'Activity')
     const full = { ...item, title: finalTitle, ...(lat != null ? { lat, lng } : {}) }
     if (isNew) updateDay(dayIndex, [...(itinerary[dayIndex] || []), full])
     else patchDay(dayIndex, item.id, full)
@@ -259,7 +256,6 @@ export default function Itinerary({ trip, onUpdate }) {
     setShowBudget(a.estCost !== '' || a.actCost !== '')
   }
 
-  // 取消强制拦截：即便没有输入 title，依然可以直接提交保存
   async function commitAdd() {
     await persist({ ...draft, id: createId() }, addingState.day, true)
     setAddingState(null)
@@ -276,12 +272,14 @@ export default function Itinerary({ trip, onUpdate }) {
   function addCustom(setDraftFn) {
     setDraftFn((d) => ({ ...d, custom: [...(d.custom || []), { key: '', value: '' }] }))
   }
+
   function setCustomAt(setDraftFn, i, patch) {
     setDraftFn((d) => ({
       ...d,
       custom: (d.custom || []).map((r, idx) => (idx === i ? { ...r, ...patch } : r)),
     }))
   }
+
   function removeCustomAt(setDraftFn, i) {
     setDraftFn((d) => ({ ...d, custom: (d.custom || []).filter((_, idx) => idx !== i) }))
   }
@@ -311,7 +309,7 @@ export default function Itinerary({ trip, onUpdate }) {
         </h4>
 
         <ul className="timeline">
-          {items.map((a, idx) => {
+          {items.map((a) => {
             if (editingId === a.id && editDraft) {
               return (
                 <li className="tl-item edit-mode" key={a.id}>
@@ -364,8 +362,7 @@ export default function Itinerary({ trip, onUpdate }) {
                   <div className="tl-body">
                     <div className="tl-title">{a.title}</div>
                     
-                    {/* 新增：如果填写了电话，支持直接拨打 */}
-                    {a.phone && (
+                    {a.phone && (a.section === 'accommodation' || a.section === 'flight') && (
                       <div className="tl-meta">
                         📞 <a href={`tel:${a.phone}`} style={{ color: '#60a5fa', textDecoration: 'underline' }}>{a.phone}</a>
                       </div>
@@ -379,7 +376,7 @@ export default function Itinerary({ trip, onUpdate }) {
                     )}
                     {nights && <div className="tl-meta">🌙 {nights}</div>}
                     {dur && <div className="tl-meta">⏱ {dur}</div>}
-                    {a.note && <div className="tl-note"><LinkifiedText text={a.note} /></div>}
+                    {a.note && <div className="tl-note" style={{ whitespace: 'pre-wrap' }}><LinkifiedText text={a.note} /></div>}
                     {(a.estCost !== '' && a.estCost != null) || (a.actCost !== '' && a.actCost != null) ? (
                       <div className="tl-meta">
                         💰{' '}
@@ -404,9 +401,9 @@ export default function Itinerary({ trip, onUpdate }) {
                     {a.custom && a.custom.length > 0 && (
                       <div className="tl-custom">
                         {a.custom.map((row, i) => (
-                          <div className="tl-custom-row" key={i} style={{ fontSize: '13px', margin: '2px 0' }}>
+                          <div className="tl-custom-row" key={i} style={{ fontSize: '13px', margin: '2px 0', wordBreak: 'break-word' }}>
                             {row.key && <strong>{row.key}: </strong>}
-                            <span>
+                            <span style={{ whitespace: 'pre-wrap' }}>
                               <LinkifiedText text={row.value} />
                               {row.value && <CopyButton value={row.value} />}
                             </span>
@@ -537,6 +534,43 @@ export default function Itinerary({ trip, onUpdate }) {
   )
 }
 
+function AutoExpandTextarea({ value, onChange, placeholder, rows = 1, className = "", style = {} }) {
+  const textareaRef = useRef(null)
+
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto'
+      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`
+    }
+  }, [value])
+
+  return (
+    <textarea
+      ref={textareaRef}
+      value={value}
+      onChange={onChange}
+      placeholder={placeholder}
+      rows={rows}
+      className={className}
+      style={{
+        width: '100%',
+        resize: 'none',
+        overflow: 'hidden',
+        boxSizing: 'border-box',
+        fontFamily: 'inherit',
+        fontSize: '14px',
+        lineHeight: '1.4',
+        padding: '8px 10px',
+        borderRadius: '6px',
+        border: '1px solid #334155',
+        backgroundColor: '#1e293b',
+        color: '#f8fafc',
+        ...style,
+      }}
+    />
+  )
+}
+
 function ActivityForm({
   draft,
   setDraft,
@@ -560,7 +594,9 @@ function ActivityForm({
   const nights = computeNights(draft.checkIn, draft.checkOut)
   const custom = draft.custom || []
   const [pasteActive, setPasteActive] = useState(false)
+  
   const isAccommodation = draft.section === 'accommodation'
+  const isFlight = draft.section === 'flight'
 
   async function handlePaste(e) {
     const cd = e.clipboardData
@@ -583,23 +619,22 @@ function ActivityForm({
   }
 
   return (
-    <div className="activity-form">
-      {/* 如果是 Accommodation，显示日期范围输入框；否则显示时间框 */}
+    <div className="activity-form" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
       {isAccommodation ? (
-        <div className="af-row" style={{ display: 'flex', gap: '8px' }}>
-          <div style={{ flex: 1 }}>
+        <div className="af-row" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <div style={{ flex: '1 1 140px' }}>
             <span style={{ fontSize: '11px', color: '#94a3b8' }}>Check-in</span>
             <input type="date" value={draft.checkIn || ''} onChange={(e) => set({ checkIn: e.target.value })} />
           </div>
-          <div style={{ flex: 1 }}>
+          <div style={{ flex: '1 1 140px' }}>
             <span style={{ fontSize: '11px', color: '#94a3b8' }}>Check-out</span>
             <input type="date" value={draft.checkOut || ''} onChange={(e) => set({ checkOut: e.target.value })} />
           </div>
         </div>
       ) : (
-        <div className="af-row">
-          <input type="time" value={draft.time} aria-label="Start Time" onChange={(e) => set({ time: e.target.value })} />
-          <input type="time" value={draft.endTime} aria-label="End Time" onChange={(e) => set({ endTime: e.target.value })} />
+        <div className="af-row" style={{ display: 'flex', gap: '8px' }}>
+          <input type="time" value={draft.time} aria-label="Start Time" onChange={(e) => set({ time: e.target.value })} style={{ flex: 1 }} />
+          <input type="time" value={draft.endTime} aria-label="End Time" onChange={(e) => set({ endTime: e.target.value })} style={{ flex: 1 }} />
         </div>
       )}
 
@@ -609,44 +644,56 @@ function ActivityForm({
       <input
         type="text"
         className="af-title"
-        placeholder={isAccommodation ? "Hotel / Accommodation Name..." : "Title / Name..."}
+        placeholder={isAccommodation ? "Hotel / Accommodation Name..." : "Title..."}
         value={draft.title}
         autoFocus
         onChange={(e) => set({ title: e.target.value })}
         onKeyDown={(e) => {
-          if (e.key === 'Enter') onAdd()
+          if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault()
+            onAdd()
+          }
         }}
       />
 
-      {/* 新增：电话号码输入框 */}
-      <input
-        type="tel"
-        placeholder="Contact Phone Number..."
-        value={draft.phone || ''}
-        onChange={(e) => set({ phone: e.target.value })}
+      {(isAccommodation || isFlight) && (
+        <input
+          type="tel"
+          placeholder="Contact Phone Number..."
+          value={draft.phone || ''}
+          onChange={(e) => set({ phone: e.target.value })}
+        />
+      )}
+
+      <AutoExpandTextarea
+        placeholder="Notes / Description..."
+        value={draft.note}
+        onChange={(e) => set({ note: e.target.value })}
       />
 
-      <input type="text" placeholder={t('activity.notePlaceholder')} value={draft.note} onChange={(e) => set({ note: e.target.value })} />
-      <input type="text" placeholder={t('activity.addressPlaceholder')} value={draft.address} onChange={(e) => set({ address: e.target.value })} />
+      <AutoExpandTextarea
+        placeholder={t('activity.addressPlaceholder')}
+        value={draft.address}
+        onChange={(e) => set({ address: e.target.value })}
+      />
 
-      {/* Custom Rows */}
-      <div className="custom-fields-section" style={{ marginTop: '8px', marginBottom: '8px' }}>
+      <div className="custom-fields-section" style={{ marginTop: '4px', marginBottom: '4px' }}>
         {custom.map((row, i) => (
-          <div key={i} style={{ display: 'flex', gap: '6px', marginBottom: '6px', alignItems: 'center' }}>
+          <div key={i} style={{ display: 'flex', gap: '6px', marginBottom: '6px', alignItems: 'flex-start' }}>
             <input
               type="text"
-              placeholder="Title / Label"
+              placeholder="Label"
               value={row.key}
               onChange={(e) => setCustomAt(setDraft, i, { key: e.target.value })}
-              style={{ width: '35%' }}
+              style={{ width: '30%', minWidth: '80px' }}
             />
-            <input
-              type="text"
-              placeholder="Description / Value / URL"
-              value={row.value}
-              onChange={(e) => setCustomAt(setDraft, i, { value: e.target.value })}
-              style={{ flex: 1 }}
-            />
+            <div style={{ flex: 1 }}>
+              <AutoExpandTextarea
+                placeholder="Details / URL..."
+                value={row.value}
+                onChange={(e) => setCustomAt(setDraft, i, { value: e.target.value })}
+              />
+            </div>
             <button
               type="button"
               onClick={() => removeCustomAt(setDraft, i)}
@@ -655,8 +702,9 @@ function ActivityForm({
                 border: 'none',
                 color: '#ef4444',
                 cursor: 'pointer',
-                fontSize: '16px',
-                padding: '0 4px',
+                fontSize: '18px',
+                padding: '4px 6px',
+                lineHeight: '1',
               }}
               title="Delete row"
             >
@@ -731,9 +779,9 @@ function ActivityForm({
 
       {showBudget && (
         <div className="adv-fields">
-          <div className="af-row">
-            <input type="number" placeholder="Est. Cost" value={draft.estCost} onChange={(e) => set({ estCost: e.target.value })} />
-            <input type="number" placeholder="Act. Cost" value={draft.actCost} onChange={(e) => set({ actCost: e.target.value })} />
+          <div className="af-row" style={{ display: 'flex', gap: '8px' }}>
+            <input type="number" placeholder="Est. Cost" value={draft.estCost} onChange={(e) => set({ estCost: e.target.value })} style={{ flex: 1 }} />
+            <input type="number" placeholder="Act. Cost" value={draft.actCost} onChange={(e) => set({ actCost: e.target.value })} style={{ flex: 1 }} />
             <select value={draft.currency} onChange={(e) => set({ currency: e.target.value })}>
               {CURRENCIES.map((c) => (
                 <option key={c} value={c}>
@@ -745,7 +793,7 @@ function ActivityForm({
         </div>
       )}
 
-      <div className="af-buttons">
+      <div className="af-buttons" style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '4px' }}>
         <button type="button" className="btn ghost small" onClick={onCancel}>
           {t('activity.cancel') || 'Cancel'}
         </button>
