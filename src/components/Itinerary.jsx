@@ -24,6 +24,16 @@ function computeDuration(start, end) {
   return `${m}m`
 }
 
+// 自动计算住宿天数/晚数
+function computeNights(checkIn, checkOut) {
+  if (!checkIn || !checkOut) return ''
+  const start = new Date(checkIn)
+  const end = new Date(checkOut)
+  const diffTime = end - start
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+  return diffDays > 0 ? `${diffDays} night${diffDays > 1 ? 's' : ''}` : ''
+}
+
 async function geocode(address) {
   const url =
     'https://nominatim.openstreetmap.org/search?format=json&limit=1&q=' +
@@ -87,11 +97,15 @@ function readImage(file) {
   })
 }
 
+// 扩展草稿结构，加入住宿日期和电话字段
 function emptyDraft(section = 'activity') {
   return {
     section,
     time: '',
     endTime: '',
+    checkIn: '',
+    checkOut: '',
+    phone: '',
     title: '',
     note: '',
     category: section === 'flight' ? 'flight' : section === 'accommodation' ? 'hotel' : 'activity',
@@ -110,7 +124,6 @@ export default function Itinerary({ trip, onUpdate }) {
   const [addingState, setAddingState] = useState(null)
   const [draft, setDraft] = useState(emptyDraft())
   const [showBudget, setShowBudget] = useState(false)
-  const [dragState, setDragState] = useState(null)
   const [editingId, setEditingId] = useState(null)
   const [editDraft, setEditDraft] = useState(null)
   const [editBudget, setEditBudget] = useState(false)
@@ -207,7 +220,9 @@ export default function Itinerary({ trip, onUpdate }) {
         lng = g.lng
       }
     }
-    const full = { ...item, ...(lat != null ? { lat, lng } : {}) }
+    // 即使 title 为空也允许设置默认名称保存
+    const finalTitle = (item.title || '').trim() || (item.section === 'accommodation' ? 'Accommodation Place' : 'Untitled Event')
+    const full = { ...item, title: finalTitle, ...(lat != null ? { lat, lng } : {}) }
     if (isNew) updateDay(dayIndex, [...(itinerary[dayIndex] || []), full])
     else patchDay(dayIndex, item.id, full)
   }
@@ -216,7 +231,7 @@ export default function Itinerary({ trip, onUpdate }) {
     setAddingState({ day: dayIndex, section })
     setEditingId(null)
     setShowBudget(false)
-    setDraft({ ...emptyDraft(section), time: '09:00' })
+    setDraft({ ...emptyDraft(section), time: section === 'accommodation' ? '' : '09:00' })
   }
 
   function startEdit(dayIndex, a) {
@@ -244,15 +259,14 @@ export default function Itinerary({ trip, onUpdate }) {
     setShowBudget(a.estCost !== '' || a.actCost !== '')
   }
 
+  // 取消强制拦截：即便没有输入 title，依然可以直接提交保存
   async function commitAdd() {
-    if (!(draft.title || '').trim()) return
     await persist({ ...draft, id: createId() }, addingState.day, true)
     setAddingState(null)
     setShowBudget(false)
   }
 
   async function commitEdit() {
-    if (!(editDraft.title || '').trim()) return
     await persist(editDraft, editDayRef.current, false)
     setEditingId(null)
     setEditDraft(null)
@@ -311,7 +325,7 @@ export default function Itinerary({ trip, onUpdate }) {
                       setEditingId(null)
                       setEditDraft(null)
                     }}
-                    addLabel={t('activity.save')}
+                    addLabel={t('activity.save') || 'Save'}
                     t={t}
                     lang={lang}
                     CURRENCIES={CURRENCIES}
@@ -327,26 +341,43 @@ export default function Itinerary({ trip, onUpdate }) {
               )
             }
             const dur = computeDuration(a.time, a.endTime)
+            const nights = computeNights(a.checkIn, a.checkOut)
+
             return (
               <Fragment key={a.id}>
                 <li className="tl-item">
                   <div className="tl-time">
-                    {a.time ? formatTime12(a.time, lang) : '—'}
-                    {a.endTime ? ` – ${formatTime12(a.endTime, lang)}` : ''}
+                    {a.section === 'accommodation' && (a.checkIn || a.checkOut) ? (
+                      <span style={{ fontSize: '12px' }}>
+                        {a.checkIn || '—'} → {a.checkOut || '—'}
+                      </span>
+                    ) : (
+                      <>
+                        {a.time ? formatTime12(a.time, lang) : '—'}
+                        {a.endTime ? ` – ${formatTime12(a.endTime, lang)}` : ''}
+                      </>
+                    )}
                   </div>
                   <div className="tl-dot" aria-hidden="true">
                     {categoryIcon(a.category)}
                   </div>
                   <div className="tl-body">
-                    {/* Title 始终保持纯文本，绝不自动匹配生成地图图标/链接 */}
                     <div className="tl-title">{a.title}</div>
                     
+                    {/* 新增：如果填写了电话，支持直接拨打 */}
+                    {a.phone && (
+                      <div className="tl-meta">
+                        📞 <a href={`tel:${a.phone}`} style={{ color: '#60a5fa', textDecoration: 'underline' }}>{a.phone}</a>
+                      </div>
+                    )}
+
                     {a.address && (
                       <div className="tl-meta">
                         📍 <LinkifiedText text={a.address} />
                         <MapOpenButton address={a.address} />
                       </div>
                     )}
+                    {nights && <div className="tl-meta">🌙 {nights}</div>}
                     {dur && <div className="tl-meta">⏱ {dur}</div>}
                     {a.note && <div className="tl-note"><LinkifiedText text={a.note} /></div>}
                     {(a.estCost !== '' && a.estCost != null) || (a.actCost !== '' && a.actCost != null) ? (
@@ -376,7 +407,6 @@ export default function Itinerary({ trip, onUpdate }) {
                           <div className="tl-custom-row" key={i} style={{ fontSize: '13px', margin: '2px 0' }}>
                             {row.key && <strong>{row.key}: </strong>}
                             <span>
-                              {/* 只有显式粘贴的真实链接才会解析为活链接 */}
                               <LinkifiedText text={row.value} />
                               {row.value && <CopyButton value={row.value} />}
                             </span>
@@ -410,7 +440,7 @@ export default function Itinerary({ trip, onUpdate }) {
             setShowBudget={setShowBudget}
             onAdd={commitAdd}
             onCancel={() => setAddingState(null)}
-            addLabel={t('activity.add')}
+            addLabel={t('activity.add') || 'Save'}
             t={t}
             lang={lang}
             CURRENCIES={CURRENCIES}
@@ -527,8 +557,10 @@ function ActivityForm({
   const set = (patch) =>
     setDraft((d) => ({ ...(d || {}), ...(typeof patch === 'function' ? patch(d) : patch) }))
   const dur = computeDuration(draft.time, draft.endTime)
+  const nights = computeNights(draft.checkIn, draft.checkOut)
   const custom = draft.custom || []
   const [pasteActive, setPasteActive] = useState(false)
+  const isAccommodation = draft.section === 'accommodation'
 
   async function handlePaste(e) {
     const cd = e.clipboardData
@@ -552,16 +584,32 @@ function ActivityForm({
 
   return (
     <div className="activity-form">
-      <div className="af-row">
-        <input type="time" value={draft.time} aria-label="Start Time" onChange={(e) => set({ time: e.target.value })} />
-        <input type="time" value={draft.endTime} aria-label="End Time" onChange={(e) => set({ endTime: e.target.value })} />
-      </div>
-      {dur && <div className="af-dur">⏱ {dur}</div>}
+      {/* 如果是 Accommodation，显示日期范围输入框；否则显示时间框 */}
+      {isAccommodation ? (
+        <div className="af-row" style={{ display: 'flex', gap: '8px' }}>
+          <div style={{ flex: 1 }}>
+            <span style={{ fontSize: '11px', color: '#94a3b8' }}>Check-in</span>
+            <input type="date" value={draft.checkIn || ''} onChange={(e) => set({ checkIn: e.target.value })} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <span style={{ fontSize: '11px', color: '#94a3b8' }}>Check-out</span>
+            <input type="date" value={draft.checkOut || ''} onChange={(e) => set({ checkOut: e.target.value })} />
+          </div>
+        </div>
+      ) : (
+        <div className="af-row">
+          <input type="time" value={draft.time} aria-label="Start Time" onChange={(e) => set({ time: e.target.value })} />
+          <input type="time" value={draft.endTime} aria-label="End Time" onChange={(e) => set({ endTime: e.target.value })} />
+        </div>
+      )}
+
+      {nights && <div className="af-dur">🌙 {nights}</div>}
+      {dur && !isAccommodation && <div className="af-dur">⏱ {dur}</div>}
 
       <input
         type="text"
         className="af-title"
-        placeholder="Title / Name..."
+        placeholder={isAccommodation ? "Hotel / Accommodation Name..." : "Title / Name..."}
         value={draft.title}
         autoFocus
         onChange={(e) => set({ title: e.target.value })}
@@ -569,10 +617,19 @@ function ActivityForm({
           if (e.key === 'Enter') onAdd()
         }}
       />
+
+      {/* 新增：电话号码输入框 */}
+      <input
+        type="tel"
+        placeholder="Contact Phone Number..."
+        value={draft.phone || ''}
+        onChange={(e) => set({ phone: e.target.value })}
+      />
+
       <input type="text" placeholder={t('activity.notePlaceholder')} value={draft.note} onChange={(e) => set({ note: e.target.value })} />
       <input type="text" placeholder={t('activity.addressPlaceholder')} value={draft.address} onChange={(e) => set({ address: e.target.value })} />
 
-      {/* 2 Inputs: Title/Label + Description */}
+      {/* Custom Rows */}
       <div className="custom-fields-section" style={{ marginTop: '8px', marginBottom: '8px' }}>
         {custom.map((row, i) => (
           <div key={i} style={{ display: 'flex', gap: '6px', marginBottom: '6px', alignItems: 'center' }}>
@@ -690,7 +747,7 @@ function ActivityForm({
 
       <div className="af-buttons">
         <button type="button" className="btn ghost small" onClick={onCancel}>
-          {t('activity.cancel')}
+          {t('activity.cancel') || 'Cancel'}
         </button>
         <button type="button" className="btn primary small" onClick={onAdd}>
           {addLabel}
