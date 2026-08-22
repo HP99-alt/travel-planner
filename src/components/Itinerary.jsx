@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { useI18n } from '../i18n/LanguageContext.jsx'
 import { createId } from '../storage.js'
-import { CATEGORIES, categoryIcon, TRANSPORT_TYPES, transportIcon } from '../categories.js'
+import { CATEGORIES, categoryIcon } from '../categories.js'
 import { CURRENCIES } from '../budget.js'
 import MapPanel from './MapPanel.jsx'
 import CopyButton from './CopyButton.jsx'
@@ -48,35 +48,6 @@ function sortByTime(list) {
   })
 }
 
-function toMinutes(t) {
-  if (!t || typeof t !== 'string' || !t.includes(':')) return null
-  const [h, m] = t.split(':').map(Number)
-  if (Number.isNaN(h) || Number.isNaN(m)) return null
-  return h * 60 + m
-}
-
-function intervalsOverlap(a, b) {
-  const as = toMinutes(a.time)
-  const ae = toMinutes(a.endTime)
-  const bs = toMinutes(b.time)
-  const be = toMinutes(b.endTime)
-  if (as == null || ae == null || bs == null || be == null) return false
-  return as < be && bs < ae
-}
-
-function findOverlaps(list) {
-  const ids = new Set()
-  for (let i = 0; i < list.length; i++) {
-    for (let j = i + 1; j < list.length; j++) {
-      if (intervalsOverlap(list[i], list[j])) {
-        ids.add(list[i].id)
-        ids.add(list[j].id)
-      }
-    }
-  }
-  return ids
-}
-
 function formatTime12(time, lang) {
   if (!time) return ''
   const [hStr, mStr] = time.split(':')
@@ -90,10 +61,20 @@ function formatTime12(time, lang) {
 
 function formatCost(price, currency) {
   if (price === '' || price == null) return ''
-  const sym = {
-    MYR: 'RM', USD: '$', CNY: '¥', EUR: '€', GBP: '£', KRW: '₩', JPY: '￥',
-    HKD: 'HK$', SGD: 'S$', AUD: 'A$', THB: '฿',
-  }[currency] || currency
+  const sym =
+    {
+      MYR: 'RM',
+      USD: '$',
+      CNY: '¥',
+      EUR: '€',
+      GBP: '£',
+      KRW: '₩',
+      JPY: '￥',
+      HKD: 'HK$',
+      SGD: 'S$',
+      AUD: 'A$',
+      THB: '฿',
+    }[currency] || currency
   return `${sym} ${price}`
 }
 
@@ -106,13 +87,14 @@ function readImage(file) {
   })
 }
 
-function emptyDraft() {
+function emptyDraft(section = 'activity') {
   return {
+    section,
     time: '',
     endTime: '',
     title: '',
     note: '',
-    category: 'activity',
+    category: section === 'flight' ? 'flight' : section === 'accommodation' ? 'hotel' : 'activity',
     address: '',
     ticketNo: '',
     estCost: '',
@@ -125,14 +107,12 @@ function emptyDraft() {
 
 export default function Itinerary({ trip, onUpdate }) {
   const { t, lang } = useI18n()
-  const [addingForDay, setAddingForDay] = useState(null)
+  const [addingState, setAddingState] = useState(null)
   const [draft, setDraft] = useState(emptyDraft())
-  const [showAdvanced, setShowAdvanced] = useState(false)
   const [showBudget, setShowBudget] = useState(false)
   const [dragState, setDragState] = useState(null)
   const [editingId, setEditingId] = useState(null)
   const [editDraft, setEditDraft] = useState(null)
-  const [editAdvanced, setEditAdvanced] = useState(false)
   const [editBudget, setEditBudget] = useState(false)
   const editDayRef = useRef(null)
   const fileRef = useRef(null)
@@ -140,6 +120,7 @@ export default function Itinerary({ trip, onUpdate }) {
   const [travel, setTravel] = useState({})
 
   const dayIndices = Array.from({ length: trip.days }, (_, i) => i)
+  const itinerary = trip.itinerary || {}
 
   useEffect(() => {
     let cancelled = false
@@ -165,15 +146,14 @@ export default function Itinerary({ trip, onUpdate }) {
       }
       if (!cancelled) setTravel(next)
     })()
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [JSON.stringify(trip.itinerary), trip.days])
 
-  const itinerary = trip.itinerary || {}
-
-  function activitiesForDay(dayIndex) {
+  function activitiesForDay(dayIndex, section) {
     const sorted = sortByTime(itinerary[dayIndex] || [])
-    const overlapIds = findOverlaps(sorted)
-    return sorted.map((a) => ({ ...a, overlap: overlapIds.has(a.id) }))
+    return sorted.filter((a) => (a.section || 'activity') === section)
   }
 
   function updateDay(dayIndex, list) {
@@ -188,16 +168,10 @@ export default function Itinerary({ trip, onUpdate }) {
   }
 
   function removeActivity(dayIndex, activityId) {
-    updateDay(dayIndex, (itinerary[dayIndex] || []).filter((a) => a.id !== activityId))
-  }
-
-  function moveItemToDay(fromDay, activityId, toDay) {
-    if (fromDay === toDay) return
-    const fromList = itinerary[fromDay] || []
-    const item = fromList.find((a) => a.id === activityId)
-    if (!item) return
-    const next = { ...itinerary, [fromDay]: fromList.filter((a) => a.id !== activityId), [toDay]: sortByTime([...(itinerary[toDay] || []), item]) }
-    onUpdate({ ...trip, itinerary: next })
+    updateDay(
+      dayIndex,
+      (itinerary[dayIndex] || []).filter((a) => a.id !== activityId),
+    )
   }
 
   function addDay() {
@@ -238,47 +212,50 @@ export default function Itinerary({ trip, onUpdate }) {
     else patchDay(dayIndex, item.id, full)
   }
 
-  function startAdd(dayIndex) {
-    setAddingForDay(dayIndex)
+  function startAdd(dayIndex, section) {
+    setAddingState({ day: dayIndex, section })
     setEditingId(null)
-    setShowAdvanced(false)
     setShowBudget(false)
-    setDraft({ ...emptyDraft(), time: '09:00' })
+    setDraft({ ...emptyDraft(section), time: '09:00' })
   }
 
   function startEdit(dayIndex, a) {
     setEditingId(a.id)
-    setAddingForDay(null)
+    setAddingState(null)
     setDraft(null)
     editDayRef.current = dayIndex
-    setEditDraft({ ...emptyDraft(), ...a, images: a.images || [], custom: a.custom || [] })
-    setEditAdvanced(!!(a.ticketNo || (a.custom && a.custom.length)))
+    setEditDraft({ ...emptyDraft(a.section || 'activity'), ...a, images: a.images || [], custom: a.custom || [] })
     setEditBudget(a.estCost !== '' || a.actCost !== '')
   }
 
   function startDuplicate(dayIndex, a) {
     setEditingId('new')
-    setAddingForDay(dayIndex)
+    setAddingState({ day: dayIndex, section: a.section || 'activity' })
     editDayRef.current = dayIndex
-    setDraft({ ...emptyDraft(), ...a, id: undefined, title: a.title ? `${a.title} (copy)` : '', ticketNo: '', images: a.images || [], custom: a.custom || [] })
-    setShowAdvanced(!!(a.ticketNo || (a.custom && a.custom.length)))
+    setDraft({
+      ...emptyDraft(a.section || 'activity'),
+      ...a,
+      id: undefined,
+      title: a.title ? `${a.title} (copy)` : '',
+      ticketNo: '',
+      images: a.images || [],
+      custom: a.custom || [],
+    })
     setShowBudget(a.estCost !== '' || a.actCost !== '')
   }
 
   async function commitAdd() {
     if (!(draft.title || '').trim()) return
-    await persist({ ...draft, id: createId() }, addingForDay, true)
-    setAddingForDay(null)
-    setShowAdvanced(false)
+    await persist({ ...draft, id: createId() }, addingState.day, true)
+    setAddingState(null)
     setShowBudget(false)
   }
 
-  async function commitEdit(activityId) {
+  async function commitEdit() {
     if (!(editDraft.title || '').trim()) return
     await persist(editDraft, editDayRef.current, false)
     setEditingId(null)
     setEditDraft(null)
-    setEditAdvanced(false)
     setEditBudget(false)
   }
 
@@ -309,6 +286,155 @@ export default function Itinerary({ trip, onUpdate }) {
     setArr([...arr, ...adds])
   }
 
+  function renderSection(dayIndex, sectionKey, sectionTitle, sectionIcon) {
+    const items = activitiesForDay(dayIndex, sectionKey)
+    const isAdding = addingState?.day === dayIndex && addingState?.section === sectionKey
+
+    return (
+      <div className="itinerary-section" style={{ marginBottom: '16px' }}>
+        <h4 style={{ fontSize: '14px', margin: '8px 0 6px', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span>{sectionIcon}</span> {sectionTitle}
+        </h4>
+
+        <ul className="timeline">
+          {items.map((a, idx) => {
+            if (editingId === a.id && editDraft) {
+              return (
+                <li className="tl-item edit-mode" key={a.id}>
+                  <ActivityForm
+                    draft={editDraft}
+                    setDraft={setEditDraft}
+                    showBudget={editBudget}
+                    setShowBudget={setEditBudget}
+                    onAdd={() => commitEdit()}
+                    onCancel={() => {
+                      setEditingId(null)
+                      setEditDraft(null)
+                    }}
+                    addLabel={t('activity.save')}
+                    t={t}
+                    lang={lang}
+                    CURRENCIES={CURRENCIES}
+                    CATEGORIES={CATEGORIES}
+                    addCustom={addCustom}
+                    setCustomAt={setCustomAt}
+                    removeCustomAt={removeCustomAt}
+                    onImagesPicked={onImagesPicked}
+                    fileRef={fileRef}
+                    onImageClick={setLightbox}
+                  />
+                </li>
+              )
+            }
+            const dur = computeDuration(a.time, a.endTime)
+            return (
+              <Fragment key={a.id}>
+                <li className="tl-item">
+                  <div className="tl-time">
+                    {a.time ? formatTime12(a.time, lang) : '—'}
+                    {a.endTime ? ` – ${formatTime12(a.endTime, lang)}` : ''}
+                  </div>
+                  <div className="tl-dot" aria-hidden="true">
+                    {categoryIcon(a.category)}
+                  </div>
+                  <div className="tl-body">
+                    {/* Title 始终保持纯文本，绝不自动匹配生成地图图标/链接 */}
+                    <div className="tl-title">{a.title}</div>
+                    
+                    {a.address && (
+                      <div className="tl-meta">
+                        📍 <LinkifiedText text={a.address} />
+                        <MapOpenButton address={a.address} />
+                      </div>
+                    )}
+                    {dur && <div className="tl-meta">⏱ {dur}</div>}
+                    {a.note && <div className="tl-note"><LinkifiedText text={a.note} /></div>}
+                    {(a.estCost !== '' && a.estCost != null) || (a.actCost !== '' && a.actCost != null) ? (
+                      <div className="tl-meta">
+                        💰{' '}
+                        {a.actCost !== '' && a.actCost != null
+                          ? `${formatCost(a.actCost, a.currency)} (${t('budget.actual')})`
+                          : formatCost(a.estCost, a.currency)}
+                      </div>
+                    ) : null}
+                    {a.images && a.images.length > 0 && (
+                      <div className="tl-images">
+                        {a.images.map((src, i) => (
+                          <img
+                            key={i}
+                            src={src}
+                            alt=""
+                            className="tl-thumb"
+                            onClick={() => setLightbox(src)}
+                          />
+                        ))}
+                      </div>
+                    )}
+                    {a.custom && a.custom.length > 0 && (
+                      <div className="tl-custom">
+                        {a.custom.map((row, i) => (
+                          <div className="tl-custom-row" key={i} style={{ fontSize: '13px', margin: '2px 0' }}>
+                            {row.key && <strong>{row.key}: </strong>}
+                            <span>
+                              {/* 只有显式粘贴的真实链接才会解析为活链接 */}
+                              <LinkifiedText text={row.value} />
+                              {row.value && <CopyButton value={row.value} />}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <div className="tl-actions">
+                      <button type="button" className="btn ghost tiny" onClick={() => startEdit(dayIndex, a)}>
+                        ✏️ {t('activity.edit')}
+                      </button>
+                      <button type="button" className="btn ghost tiny" onClick={() => startDuplicate(dayIndex, a)}>
+                        📋 {t('activity.duplicate')}
+                      </button>
+                      <button type="button" className="btn danger tiny" onClick={() => removeActivity(dayIndex, a.id)}>
+                        {t('activity.delete')}
+                      </button>
+                    </div>
+                  </div>
+                </li>
+              </Fragment>
+            )
+          })}
+        </ul>
+
+        {isAdding ? (
+          <ActivityForm
+            draft={draft}
+            setDraft={setDraft}
+            showBudget={showBudget}
+            setShowBudget={setShowBudget}
+            onAdd={commitAdd}
+            onCancel={() => setAddingState(null)}
+            addLabel={t('activity.add')}
+            t={t}
+            lang={lang}
+            CURRENCIES={CURRENCIES}
+            CATEGORIES={CATEGORIES}
+            addCustom={addCustom}
+            setCustomAt={setCustomAt}
+            removeCustomAt={removeCustomAt}
+            onImagesPicked={onImagesPicked}
+            fileRef={fileRef}
+            onImageClick={setLightbox}
+          />
+        ) : (
+          <button
+            className="btn ghost small add-activity"
+            style={{ marginTop: '4px', width: '100%' }}
+            onClick={() => startAdd(dayIndex, sectionKey)}
+          >
+            + Add {sectionTitle}
+          </button>
+        )}
+      </div>
+    )
+  }
+
   return (
     <section className="itinerary">
       <div className="itinerary-head">
@@ -327,28 +453,17 @@ export default function Itinerary({ trip, onUpdate }) {
             </button>
           </div>
         </div>
-        <p className="ih-hint">{t('itinerary.date')}: {dateForDay(trip.startDate, 0)} → {dateForDay(trip.startDate, trip.days - 1)} · {trip.days} {t('itinerary.daysLabel')}</p>
+        <p className="ih-hint">
+          {t('itinerary.date')}: {dateForDay(trip.startDate, 0)} → {dateForDay(trip.startDate, trip.days - 1)} · {trip.days} {t('itinerary.daysLabel')}
+        </p>
       </div>
 
       <div className="itinerary-cols">
         <div className="days-scroll">
           {dayIndices.map((dayIndex) => {
-            const items = activitiesForDay(dayIndex)
             const date = dateForDay(trip.startDate, dayIndex)
-            const isAdding = addingForDay === dayIndex
             return (
-              <div
-                className="day-card"
-                key={dayIndex}
-                onDragOver={(e) => { if (dragState && dragState.day !== dayIndex) e.preventDefault() }}
-                onDrop={(e) => {
-                  e.preventDefault()
-                  if (!dragState || dragState.day === dayIndex) return
-                  const item = (itinerary[dragState.day] || [])[dragState.index]
-                  if (item) moveItemToDay(dragState.day, item.id, dayIndex)
-                  setDragState(null)
-                }}
-              >
+              <div className="day-card" key={dayIndex}>
                 <div className="day-head">
                   <h3>
                     {t('itinerary.day')} {dayIndex + 1}
@@ -368,207 +483,9 @@ export default function Itinerary({ trip, onUpdate }) {
                   </div>
                 </div>
 
-                <ul className="timeline">
-                  {items.length === 0 && !isAdding && editingId == null && (
-                    <li className="activity-empty">{t('itinerary.emptyDay')}</li>
-                  )}
-                  {items.map((a, idx) => {
-                    if (editingId === a.id && editDraft) {
-                      return (
-                        <li className="tl-item edit-mode" key={a.id}>
-                          <ActivityForm
-                            draft={editDraft}
-                            setDraft={setEditDraft}
-                            showAdvanced={editAdvanced}
-                            setShowAdvanced={setEditAdvanced}
-                            showBudget={editBudget}
-                            setShowBudget={setEditBudget}
-                            onAdd={() => commitEdit(a.id)}
-                            onCancel={() => {
-                              setEditingId(null)
-                              setEditDraft(null)
-                            }}
-                            addLabel={t('activity.save')}
-                            t={t}
-                            lang={lang}
-                            CURRENCIES={CURRENCIES}
-                            CATEGORIES={CATEGORIES}
-                            addCustom={addCustom}
-                            setCustomAt={setCustomAt}
-                            removeCustomAt={removeCustomAt}
-                            onImagesPicked={onImagesPicked}
-                            fileRef={fileRef}
-                            onImageClick={setLightbox}
-                          />
-                        </li>
-                      )
-                    }
-                    const dur = computeDuration(a.time, a.endTime)
-                    return (
-                      <Fragment key={a.id}>
-                      <li
-                        className="tl-item"
-                        draggable
-                        onDragStart={() => setDragState({ day: dayIndex, index: idx })}
-                        onDragEnd={() => setDragState(null)}
-                        onDragOver={(e) => e.preventDefault()}
-                        onDrop={(e) => {
-                          e.stopPropagation()
-                          if (!dragState) return
-                          if (dragState.day !== dayIndex) {
-                            const item = (itinerary[dragState.day] || [])[dragState.index]
-                            if (item) moveItemToDay(dragState.day, item.id, dayIndex)
-                            setDragState(null)
-                            return
-                          }
-                          const list = [...(itinerary[dayIndex] || [])]
-                          if (dragState.index === idx) { setDragState(null); return }
-                          const [moved] = list.splice(dragState.index, 1)
-                          list.splice(idx, 0, moved)
-                          setDragState(null)
-                          updateDay(dayIndex, list)
-                        }}
-                      >
-                        <div className="tl-time">
-                          {a.time ? formatTime12(a.time, lang) : '—'}
-                          {a.endTime ? ` – ${formatTime12(a.endTime, lang)}` : ''}
-                        </div>
-                        <div className="tl-dot" aria-hidden="true">
-                          {a.category === 'transport' && a.transportType ? transportIcon(a.transportType) : categoryIcon(a.category)}
-                        </div>
-                        <div className="tl-body">
-                          <div className="tl-title">{a.title}</div>
-                          {a.address && (
-                            <div className="tl-meta">
-                              📍 <LinkifiedText text={a.address} />
-                              <MapOpenButton address={a.address} />
-                            </div>
-                          )}
-                          {dur && <div className="tl-meta">⏱ {dur}</div>}
-                          {a.note && <div className="tl-note"><LinkifiedText text={a.note} /></div>}
-                          {(a.estCost !== '' && a.estCost != null) || (a.actCost !== '' && a.actCost != null) ? (
-                            <div className="tl-meta">
-                              💰{' '}
-                              {a.actCost !== '' && a.actCost != null
-                                ? `${formatCost(a.actCost, a.currency)} (${t('budget.actual')})`
-                                : formatCost(a.estCost, a.currency)}
-                            </div>
-                          ) : null}
-                          {a.images && a.images.length > 0 && (
-                            <div className="tl-images">
-                              {a.images.map((src, i) => (
-                                <img
-                                  key={i}
-                                  src={src}
-                                  alt=""
-                                  className="tl-thumb"
-                                  role="button"
-                                  tabIndex={0}
-                                  onClick={() => setLightbox(src)}
-                                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setLightbox(src) }}
-                                />
-                              ))}
-                            </div>
-                          )}
-                          {a.custom && a.custom.length > 0 && (
-                            <div className="tl-custom">
-                              {a.custom.map((row, i) => (
-                                <div className="tl-custom-row" key={i}>
-                                  {row.key && <span className="tl-custom-k">{row.key}: </span>}
-                                  <span className="tl-custom-v">
-                                    <LinkifiedText text={row.value} />
-                                    {row.value && <CopyButton value={row.value} />}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                          {a.overlap && (
-                            <div className="tl-overlap" role="status">
-                              ⚠️ {t('activity.overlap')}
-                            </div>
-                          )}
-                          <div className="tl-actions">
-                            <button type="button" className="btn ghost tiny" onClick={() => startEdit(dayIndex, a)}>
-                              ✏️ {t('activity.edit')}
-                            </button>
-                            <button type="button" className="btn ghost tiny" onClick={() => startDuplicate(dayIndex, a)}>
-                              📋 {t('activity.duplicate')}
-                            </button>
-                            <button type="button" className="btn danger tiny" onClick={() => removeActivity(dayIndex, a.id)}>
-                              {t('activity.delete')}
-                            </button>
-                            <label className="move-day">
-                              <span className="visually-hidden">Move to day</span>
-                              <select
-                                value={dayIndex}
-                                onChange={(e) => moveItemToDay(dayIndex, a.id, Number(e.target.value))}
-                                aria-label="Move to day"
-                              >
-                                <option value={dayIndex} disabled>
-                                  {t('itinerary.day')} {dayIndex + 1}
-                                </option>
-                                {dayIndices.filter((d) => d !== dayIndex).map((d) => (
-                                  <option key={d} value={d}>
-                                    → {t('itinerary.day')} {d + 1}
-                                  </option>
-                                ))}
-                              </select>
-                            </label>
-                          </div>
-                        </div>
-                      </li>
-                      {travel[dayIndex] && travel[dayIndex][idx] && (() => {
-                        const c = travel[dayIndex][idx]
-                        const a = (itinerary[dayIndex] || []).find((x) => x.id === c.aId)
-                        const b = (itinerary[dayIndex] || []).find((x) => x.id === c.bId)
-                        if (!a || !b) return null
-                        const url = directionsUrl({ lat: a.lat, lng: a.lng }, { lat: b.lat, lng: b.lng })
-                        return (
-                          <li className="tl-travel" key={'trav-' + c.aId + '-' + c.bId}>
-                            <span className="tl-travel-line" aria-hidden="true" />
-                            <a className="tl-travel-pill" href={url} target="_blank" rel="noopener noreferrer" title={t('map.open')}>
-                              {travelIconFor(c.mode)} {c.minutes} min
-                            </a>
-                          </li>
-                        )
-                      })()}
-                      </Fragment>
-                    )
-                  })}
-                </ul>
-
-                {isAdding ? (
-                  <ActivityForm
-                    draft={draft}
-                    setDraft={setDraft}
-                    showAdvanced={showAdvanced}
-                    setShowAdvanced={setShowAdvanced}
-                    showBudget={showBudget}
-                    setShowBudget={setShowBudget}
-                    onAdd={commitAdd}
-                    onCancel={() => {
-                      setAddingForDay(null)
-                      setShowAdvanced(false)
-                      setShowBudget(false)
-                    }}
-                    addLabel={t('activity.add')}
-                    t={t}
-                    lang={lang}
-                    CURRENCIES={CURRENCIES}
-                    CATEGORIES={CATEGORIES}
-                    addCustom={addCustom}
-                    setCustomAt={setCustomAt}
-                    removeCustomAt={removeCustomAt}
-                    onImagesPicked={onImagesPicked}
-                    fileRef={fileRef}
-                    onImageClick={setLightbox}
-                  />
-                ) : (
-                  <button className="btn ghost small add-activity" onClick={() => startAdd(dayIndex)}>
-                    + {t('itinerary.addActivity')}
-                  </button>
-                )}
+                {renderSection(dayIndex, 'flight', 'Flights / Transport', '✈️')}
+                {renderSection(dayIndex, 'accommodation', 'Accommodation', '🏨')}
+                {renderSection(dayIndex, 'activity', 'Activities', '📌')}
               </div>
             )
           })}
@@ -584,10 +501,8 @@ export default function Itinerary({ trip, onUpdate }) {
         <div className="img-lightbox" role="dialog" aria-modal="true" onClick={() => setLightbox(null)}>
           <button type="button" className="img-lightbox-close" aria-label="close" onClick={() => setLightbox(null)}>×</button>
           <img src={lightbox} alt="" className="img-lightbox-img" onClick={(e) => e.stopPropagation()} />
-          <span className="img-lightbox-hint">{t('activity.lightboxHint')}</span>
         </div>
       )}
-
     </section>
   )
 }
@@ -595,17 +510,13 @@ export default function Itinerary({ trip, onUpdate }) {
 function ActivityForm({
   draft,
   setDraft,
-  showAdvanced,
-  setShowAdvanced,
   showBudget,
   setShowBudget,
   onAdd,
   onCancel,
   addLabel,
   t,
-  lang,
   CURRENCIES,
-  CATEGORIES,
   addCustom,
   setCustomAt,
   removeCustomAt,
@@ -642,22 +553,39 @@ function ActivityForm({
   return (
     <div className="activity-form">
       <div className="af-row">
-        <input type="time" value={draft.time} aria-label={t('activity.startTime')} onChange={(e) => set({ time: e.target.value })} />
-        <input type="time" value={draft.endTime} aria-label={t('activity.endTime')} onChange={(e) => set({ endTime: e.target.value })} />
+        <input type="time" value={draft.time} aria-label="Start Time" onChange={(e) => set({ time: e.target.value })} />
+        <input type="time" value={draft.endTime} aria-label="End Time" onChange={(e) => set({ endTime: e.target.value })} />
       </div>
       {dur && <div className="af-dur">⏱ {dur}</div>}
 
-      <input type="text" className="af-title" placeholder={t('activity.titlePlaceholder')} value={draft.title} autoFocus onChange={(e) => set({ title: e.target.value })} onKeyDown={(e) => { if (e.key === 'Enter') onAdd() }} />
+      <input
+        type="text"
+        className="af-title"
+        placeholder="Title / Name..."
+        value={draft.title}
+        autoFocus
+        onChange={(e) => set({ title: e.target.value })}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') onAdd()
+        }}
+      />
       <input type="text" placeholder={t('activity.notePlaceholder')} value={draft.note} onChange={(e) => set({ note: e.target.value })} />
       <input type="text" placeholder={t('activity.addressPlaceholder')} value={draft.address} onChange={(e) => set({ address: e.target.value })} />
 
-      {/* 动态增加/删除多行区域 */}
+      {/* 2 Inputs: Title/Label + Description */}
       <div className="custom-fields-section" style={{ marginTop: '8px', marginBottom: '8px' }}>
         {custom.map((row, i) => (
           <div key={i} style={{ display: 'flex', gap: '6px', marginBottom: '6px', alignItems: 'center' }}>
             <input
               type="text"
-              placeholder="Detail (e.g. Flight/Link)"
+              placeholder="Title / Label"
+              value={row.key}
+              onChange={(e) => setCustomAt(setDraft, i, { key: e.target.value })}
+              style={{ width: '35%' }}
+            />
+            <input
+              type="text"
+              placeholder="Description / Value / URL"
               value={row.value}
               onChange={(e) => setCustomAt(setDraft, i, { value: e.target.value })}
               style={{ flex: 1 }}
@@ -671,7 +599,7 @@ function ActivityForm({
                 color: '#ef4444',
                 cursor: 'pointer',
                 fontSize: '16px',
-                padding: '0 6px',
+                padding: '0 4px',
               }}
               title="Delete row"
             >
@@ -685,14 +613,19 @@ function ActivityForm({
           onClick={() => addCustom(setDraft)}
           style={{ width: '100%', borderStyle: 'dashed', marginTop: '4px' }}
         >
-          ＋ Add Row
+          ＋ Add Custom Row
         </button>
       </div>
 
       <div
         className={`af-images ${pasteActive ? 'paste-active' : ''}`}
         onPaste={handlePaste}
-        onDragOver={(e) => { if (Array.from(e.dataTransfer.items || []).some((i) => i.kind === 'file')) { e.preventDefault(); setPasteActive(true) } }}
+        onDragOver={(e) => {
+          if (Array.from(e.dataTransfer.items || []).some((i) => i.kind === 'file')) {
+            e.preventDefault()
+            setPasteActive(true)
+          }
+        }}
         onDragLeave={() => setPasteActive(false)}
         onDrop={(e) => {
           const files = Array.from(e.dataTransfer.files || []).filter((f) => f.type.startsWith('image/'))
@@ -709,12 +642,11 @@ function ActivityForm({
               src={src}
               alt=""
               className="af-thumb"
-              role="button"
-              tabIndex={0}
               onClick={() => onImageClick && onImageClick(src)}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onImageClick && onImageClick(src) }}
             />
-            <button type="button" className="af-thumb-x" onClick={() => set({ images: draft.images.filter((_, idx) => idx !== i) })} aria-label="delete">×</button>
+            <button type="button" className="af-thumb-x" onClick={() => set({ images: draft.images.filter((_, idx) => idx !== i) })}>
+              ×
+            </button>
           </div>
         ))}
         <button type="button" className="af-img-add" onClick={() => fileRef.current?.click()}>
@@ -747,7 +679,9 @@ function ActivityForm({
             <input type="number" placeholder="Act. Cost" value={draft.actCost} onChange={(e) => set({ actCost: e.target.value })} />
             <select value={draft.currency} onChange={(e) => set({ currency: e.target.value })}>
               {CURRENCIES.map((c) => (
-                <option key={c} value={c}>{c}</option>
+                <option key={c} value={c}>
+                  {c}
+                </option>
               ))}
             </select>
           </div>
